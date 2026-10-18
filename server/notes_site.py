@@ -319,7 +319,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Content-Length', str(len(body)))
-        for k, v in (extra or {}).items():
+        for k, v in {'Cache-Control': 'no-store', 'Vary': 'Authorization', **(extra or {})}.items():
             self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
@@ -345,6 +345,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         c = db()
         p = self.path.split('?')[0]
+        import account_access
+        if account_access.enforce(self, c, p):
+            return
         if p == '/api/health':
             n = c.execute('SELECT COUNT(*) n FROM users').fetchone()['n']
             ll = c.execute('SELECT COUNT(*) n FROM login_log').fetchone()['n']
@@ -746,6 +749,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         c = db()
         p = self.path.split('?')[0]
+        import account_access
+        if account_access.enforce(self, c, p):
+            return
         ip, ua = self._ip(), self.headers.get('User-Agent', '')
         if p in ('/api/register', '/api/login'):
             try:
@@ -907,8 +913,8 @@ class Handler(BaseHTTPRequestHandler):
                                                     u['key_hash']):
                     log_login(c, user['username'], ip, ua, 0, 'appkey_challenge_failed')
                     return self._json(401, {'error': 'bad_credentials'})
-            elif mode == 'device':   # 端上生物/图案已通过（本地锁同强度）
-                pass
+            elif mode == 'device':
+                return self._json(403, {'error': 'server_verified_second_factor_required', 'message': '请使用账户密码完成二次验证'})
             else:
                 return self._json(400, {'error': 'bad_mode'})
             nonce = secrets.token_urlsafe(16)
