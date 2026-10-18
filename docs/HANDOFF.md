@@ -1,6 +1,6 @@
 # Minis｜内置官方开发客户端与跨会话接力
 
-> 🟡 **进行中** · 更新：2026-10-18T14:23+08:00
+> 🟡 **进行中** · 更新：2026-10-18T14:26+08:00
 >
 > OpenCode 已在 Minis 的 ARM64 Android / Alpine / PRoot 内完成真实新会话：代码、3 项测试及滴答写入/独立读回。ZCode 正接手同一项目。
 
@@ -30,7 +30,7 @@
 | Node / Python 命令 | ✅ 通过 | Node 24.18.1；Python 3.12.15 |
 | 客户端资源排除私人凭据 | ✅ 2 项测试通过 | `tests/test_client_payload.py` |
 | 交接冲突、幂等及安全回归 | ✅ 7 项通过 | `tests/test_handoff.py` |
-| 真实 POST 分发鉴权回归 | ✅ 3 项通过 | `tests/test_handoff_dispatch.py`，生产已鉴权读接口复核通过 |
+| 真实 POST 分发鉴权回归 | ✅ 3 项通过 | `tests/test_handoff_dispatch.py`；生产已鉴权读成功、未登录 401 |
 | OpenCode 自主开发及自动交接 | ✅ 通过 | 新会话实现函数、3 tests OK、verified=true、106 独立读回 |
 | ZCode 原生接力会话 | 🧪 执行中 | 同一项目与滴答任务 |
 
@@ -47,6 +47,9 @@
 - **代码：** [ClientBootstrap.java](../src/site/zhangyue/minis/handoff/ClientBootstrap.java)、[启动脚本](../assets/clients/launch)、[资源打包](../scripts/prepare_clients.py)。
 - **验收：** [ClientRuntimeInstrumentation.java](../tests/ClientRuntimeInstrumentation.java)、[命令入口](../scripts/verify_native_clients.py)。
 - **待安装升级：** 最新格式升级包已生成，待登录流程结束再安装，避免中断官方授权。
+- **已推送代码：** `98610fb`；此文后续提交记录当前等待状态。
+- **正式 APK 摘要：** `244415a80ff627bc0a7b68c7f99e819b465c63ef687bb72f83ab82cebaf94877`，家族签名再次验证通过；完整 ZCode 接力尚未验收，未发布。
+- **登录等待：** 专用 ARM64 测试设备 `emulator-5580` 的 CLI 正等待官方微信拼图；登录链接过期时重新由 Android CLI 生成，不能复用旧 state。临时同步会话仅供隔离验收，结束后撤销。
 - **其他工作区改动：** NAS 模块及测试正在并行修改，未纳入本轮客户端提交。
 - **账号：** 测试凭据仅在受控测试环境，临时同步会话需要在验收结束后撤销；不上传账号或原始日志。
 
