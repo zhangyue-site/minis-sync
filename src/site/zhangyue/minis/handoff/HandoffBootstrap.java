@@ -24,6 +24,7 @@ public final class HandoffBootstrap {
             try {
                 bridge(app);
                 install(app);
+                ClientBootstrap.ensure(app);
             } catch (Exception e) {
                 Log.e("MinisHandoff", "bootstrap failed: " + e.getClass().getSimpleName());
             }

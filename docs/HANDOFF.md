@@ -1,33 +1,57 @@
-# 当前开发交接
+# Minis｜内置官方开发客户端与跨会话接力
 
-现状：交接内置和 Android → 服务端 → 滴答链路已实测；模型客户端内置及 Minis 自主开发会话未完成。证据日期：2026-10-18。
+> 🟡 **进行中** · 更新：2026-10-18T13:55+08:00
+>
+> OpenCode、ZCode 已在 ARM64 Android 内真实运行；完整开发与自动交接仍待通过。交接已改为分区、勾选和验证表格。
 
-仓库： https://github.com/xiaoletian64/minis-sync （私有），默认分支 main；首次源码快照 6f1863b。已向 YangLuSE 发出 write 协作邀请，待对方接受。此次提交前7项交接回归和10项增量测试通过；未上传APK或私有运维资料。
+## 已完成
 
-上传期间发现 NAS 模块及相关测试存在并行未提交改动，未混入首次快照；接手时先查看 git status/diff，不能把这些工作区变化视为已推送。
+- [x] 1.14.9 / versionCode 110 构建及家族签名验证。
+- [x] 官方 ARM64 客户端离线打包、资源摘要校验、独立目录安装；凭据不进入 APK。
+- [x] Minis 原生 Rootfs / PRoot 在专用 ARM64 Android 模拟器内执行。
+- [x] 实际版本：OpenCode `1.18.3`、ZCode CLI `0.16.9`、Node `24.18.1`、Python `3.12.15`。
+- [x] 修复 OpenCode 加载方式与 Node ICU 数据路径；添加 `coding-clients` Skill。
+- [x] 交接排版规范加入桌面 Skill 和 Minis 内置 Skill；模板见 [HANDOFF-FORMAT.md](HANDOFF-FORMAT.md)。
 
-## 已完成与证据
+## 待处理
 
-- 1.14.8 / versionCode 109 构建、家族签名验证通过。
-- 隔离 Android 包真实冷启动注册 Skill；KeyStore 解密、本地未授权 401、端到端写入和独立读回通过。
-- `tests/test_handoff.py` 7 项通过：历史内容/字段保留、更新幂等、陈旧版本冲突拒绝、注入和路径拒绝、账号限制、免费渠道不回退付费及输出上限。
-- 已在独立桌面测试环境验证 Codex、OpenCode、ZCode、Cursor、DeepSeek Harness 的新会话实现、测试与滴答交接；OpenCode 接手 ZCode 工作区也完成后续功能和同一任务更新。
-- 个人验收日志及任务绑定留在维护者环境，本仓库不包含这些私有记录。
+- [ ] **OpenCode 全新会话：** 首轮自动读取交接 Skill 时被工作区权限拒绝，未完成代码和测试；退出码 0 不代表成功。
+- [ ] 全局 Skill 目录注册代码已补入并编译，待重建安装和新会话复验；未放开整个文件系统权限。
+- [ ] ZCode 新会话接手同一项目，完成后续功能、测试与滴答写入/独立读回。
+- [ ] 最终 APK 验收、代码及交接同步 GitHub 和滴答。
 
-## 剩余与下一步
+## 验证
 
-1. 查看 `src/site/zhangyue/minis/handoff/HandoffBootstrap.java`、`assets/handoff/` 和 `server/provider_rpc.py`。当前是交接桥和代理模板，不能报告为两个官方客户端已内置。
-2. 在 Minis ARM64 Alpine 环境实际接入官方客户端，先验证启动，再用真正的新开发会话完成文件修改、测试与滴答写入/读回。
-3. 官方 OpenCode 免费渠道在服务器侧验收时被限流，未通过；不自动回退付费。模板目前禁用。
-4. 部署 `server/owner_features.py` 时，须把鉴权后的路由分发接入宿主 HTTP Handler；以当时服务端文件为基准合并，避免覆盖其他部署。
-5. 共享给协作者时使用其本人测试账号和隔离滴答任务，不复用维护者生产令牌。
+| 检查 | 结果 | 证据或限制 |
+| --- | --- | --- |
+| ARM64 PRoot 真正执行命令 | ✅ 通过 | 返回 `aarch64` 与测试标记 |
+| 两个官方客户端版本输出 | ✅ 通过 | 在 Android 内运行，未以服务器结果代替 |
+| Node / Python 命令 | ✅ 通过 | Node 24.18.1；Python 3.12.15 |
+| 客户端资源排除私人凭据 | ✅ 2 项测试通过 | `tests/test_client_payload.py` |
+| 交接冲突、幂等及安全回归 | ✅ 7 项通过 | `tests/test_handoff.py` |
+| OpenCode 自主开发及自动交接 | 🔴 未通过 | 外部路径读取被拒绝；没有完成实现 |
+| ZCode 原生接力会话 | 🧪 尚未运行 | 等待前一客户端完成 |
 
-## 文件入口
+## 下一步
 
-- `build.py`：1.14.8 重打包；`build_1_14_7.py`：前版本构建参考。
-- `src/site/zhangyue/minis/sync/`：增量传输及 SMB 安全备份。
-- `server/`：同步、保留、归档、交接及模型代理模块。
-- `tests/HandoffInstrumentation.java`：原生交接仪器验收，必须使用隔离包及临时令牌。
-- `assets/handoff/dida-dev-handoff.zip`：面向手机的交接 Skill，不含模型/滴答凭据。
+1. 重建包含全局 Skill 注册修复的安装包；`ClientBootstrap.java` 已编译，保留用户命令、符号链接及配置。
+2. 恢复专用 ARM64 测试模拟器；中断后该设备已断开，先核对现存进程与应用数据。
+3. 用普通开发提示启动 OpenCode 全新会话；确认真实文件修改、测试输出和滴答读回。
+4. 让 ZCode 新会话接手同一项目；达到同样验收条件后再标记闭环完成。
 
-本次上传前源码目录无 Git 历史，首次提交是当前文件快照，不代表从头重建或所有已有代码均由本次上传任务编写。未提交的个人运维记录已被忽略。后续接手先核对 Git 差异、此交接及实际代码，不根据旧结论直接宣称部署完成。
+## 接力入口
+
+- **仓库：** [xiaoletian64/minis-sync](https://github.com/xiaoletian64/minis-sync)（私有），分支 `main`。
+- **当前执行：** Codex；负责客户端安装、启动、排版和验收。
+- **代码：** [ClientBootstrap.java](../src/site/zhangyue/minis/handoff/ClientBootstrap.java)、[启动脚本](../assets/clients/launch)、[资源打包](../scripts/prepare_clients.py)。
+- **验收：** [ClientRuntimeInstrumentation.java](../tests/ClientRuntimeInstrumentation.java)。
+- **其他工作区改动：** NAS 模块及测试正在并行修改，未纳入本轮客户端提交。
+- **账号：** 测试凭据仅在受控测试环境，临时同步会话需要在验收结束后撤销；不上传账号或原始日志。
+
+## 历史记录
+
+- 1.14.8 原生交接桥、AndroidKeyStore、本地未授权 401、手机到滴答写入及读回已通过。
+- 桌面 Codex、OpenCode、ZCode、Cursor、DeepSeek 的新会话交接曾实测通过；不能据此宣称手机客户端也已通过。
+- 106 的 x86 Android 容器无法执行 ARM64 PRoot，已切换到 ARM64 模拟器。
+- 服务器 Free 渠道曾限流；不自动回退付费。API 模板不等于官方客户端或免费权益。
+- 首次源码快照 `6f1863b`；协作者 YangLuSE 已发出 write 邀请。个人运维资料和 APK 未放入 Git。

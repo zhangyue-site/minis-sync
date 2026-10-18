@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import zipfile
 
-ROOT = Path('/opt/minis-fix-20261018')
+ROOT = Path(os.environ.get('MINIS_BUILD_ROOT', '/opt/minis-fix-20261018'))
 BASE = Path('/opt/msx107/base/dex1_smali')
 BT = Path('/opt/android-sdk/build-tools/35.0.0')
 base = Path('/opt/msx107/out/minis-sync-1.14.6.apk')
@@ -53,7 +53,7 @@ for filename, register in (('Q.smali', 'v11'), ('V.smali', 'v3')):
     source = updater.read_text()
     old = '    const/16 ' + register + ', 0x69'
     assert source.count(old) == 1
-    updater.write_text(source.replace(old, '    const/16 ' + register + ', 0x6d'))
+    updater.write_text(source.replace(old, '    const/16 ' + register + ', 0x6e'))
 def patch_handoff(folder):
     activity = folder / 'com/openminis/app/MainActivity.smali'
     text = activity.read_text()
@@ -69,6 +69,16 @@ def patch_handoff(folder):
             r'\1\n\n    invoke-static/range {p0 .. p0}, Lsite/zhangyue/minis/handoff/HandoffBootstrap;->ensure(Landroid/content/Context;)V', block, count=1)
         assert count == 1, 'MainActivity hook anchor missing'
         activity.write_text(text[:start] + block + text[end:])
+    kernel = folder / 'M3/P.smali'
+    text = kernel.read_text()
+    begin = text.index('.method public final c(Landroid/content/Context;LA4/c;)Ljava/lang/Object;')
+    end = text.index('.end method', begin)
+    block = text[begin:end]
+    if 'ClientBootstrap;->install' not in block:
+        hook = '    invoke-virtual {p2}, LM3/q0;->f()V'
+        assert block.count(hook) == 1, 'native rootfs initialization anchor missing'
+        block = block.replace(hook, hook + '\n\n    invoke-static/range {p1 .. p1}, Lsite/zhangyue/minis/handoff/ClientBootstrap;->install(Landroid/content/Context;)V')
+        kernel.write_text(text[:begin] + block + text[end:])
     prompt = folder / 'Y3/Q7.smali'
     text = prompt.read_text()
     anchor = 'Interactive terminal:'
@@ -98,9 +108,9 @@ run('jar', 'cf', out / 'sync.jar', '-C', classes, '.')
 dex = ROOT / 'dex'
 dex.mkdir(exist_ok=True)
 run('java', '-Xmx1g', '-cp', BT / 'lib/d8.jar', 'com.android.tools.r8.D8', '--release', '--min-api', '26', '--lib', '/opt/android-sdk/platforms/android-34/android.jar', '--output', dex, out / 'sync.jar', *jars)
-run('python3', ROOT / 'patch_axml_v2.py', base, '109', '1.14.6', '1.14.8', out / 'AndroidManifest.xml')
+run('python3', ROOT / 'patch_axml_v2.py', base, '110', '1.14.6', '1.14.9', out / 'AndroidManifest.xml')
 for test in (False, True):
-    name = 'minis-sync-1.14.8-test' if test else 'minis-sync-1.14.8'
+    name = 'minis-sync-1.14.9-test' if test else 'minis-sync-1.14.9'
     manifest = (out / 'AndroidManifest.xml').read_bytes()
     if test:
         manifest = manifest.replace('site.zhangyue.minis'.encode('utf-16-le'), 'test.zhangyue.minis'.encode('utf-16-le'))
@@ -117,8 +127,8 @@ for test in (False, True):
         output.write(out / 'classes.dex', 'classes.dex')
         output.write(out / 'classes2.dex', 'classes2.dex')
         output.write(dex / 'classes.dex', 'classes3.dex')
-        for asset in sorted((ROOT / 'assets/handoff').rglob('*')):
-            if asset.is_file(): output.write(asset, 'assets/handoff/' + str(asset.relative_to(ROOT / 'assets/handoff')))
+        for asset in sorted((ROOT / 'assets').rglob('*')):
+            if asset.is_file(): output.write(asset, 'assets/' + str(asset.relative_to(ROOT / 'assets')), compress_type=zipfile.ZIP_STORED if asset.name.endswith('.tar.gz') else zipfile.ZIP_DEFLATED)
     run(BT / 'zipalign', '-p', '-f', '4', out / (name + '-unsigned.apk'), out / (name + '-aligned.apk'))
     run(BT / 'apksigner', 'sign', '--ks', '/opt/keystore-vault/notesvault.keystore', '--ks-key-alias', 'notesvault', '--ks-pass', 'env:MINIS_SIGNING_PASSWORD', '--out', out / (name + '.apk'), out / (name + '-aligned.apk'))
     verification = subprocess.run([str(BT / 'apksigner'), 'verify', '--verbose', '--print-certs', str(out / (name + '.apk'))], check=True, capture_output=True, text=True)

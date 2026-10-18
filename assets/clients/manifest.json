@@ -1,0 +1,20 @@
+{
+  "format": 1,
+  "runtime": "runtime-v1",
+  "architecture": "aarch64",
+  "sha256": "c0d55d03233e0a9ce899f9a9a9f2d003c18949f13622a278a3dd4092d7ee13bf",
+  "bytes": 103498417,
+  "artifacts": {
+    "node": "e7a282590d5fb312fbf6f659f86238b0d4d74c9a92cf23cadfcf551ca332f7e8",
+    "python3": "7d1bf26e09ba6e5824f7f7587f2d37090def82ae83fe81485e3163a70bc8f7f5",
+    "ld-musl-aarch64.so.1": "fc61b6e11fd8c6bfee3235865249cd78eea34aa36d88277e6008038031160993",
+    "opencode": "3ecdc5bc49cd5a70556eae146176bbb059a73260225cc0d4de4e7e15ba012523",
+    "zcode.cjs": "31965ce1d5d4a808ef156784f67996de42ccab335591d2386a61ea8f6f506a54",
+    "zcode-builtin.json": "18f80aed398652090bb23f50b11f23c321b23590395b3e4af9494f6f0eca00c6"
+  },
+  "sources": {
+    "opencode": "https://registry.npmjs.org/opencode-linux-arm64-musl/1.18.3",
+    "alpine": "https://dl-cdn.alpinelinux.org/alpine/v3.23/main/aarch64/",
+    "zcode": "Official ZCode Desktop resources/glm/zcode.cjs and resources/config/provider/zcode-builtin.json; never personal provider_config.json"
+  }
+}

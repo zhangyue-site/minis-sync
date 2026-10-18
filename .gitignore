@@ -28,5 +28,9 @@ owner-test-token
 # Private deployment, billing, evidence, and per-user task bindings remain local.
 docs/*
 !docs/HANDOFF.md
+!docs/HANDOFF-FORMAT.md
 !docs/BUILD.md
 server/*.plist
+
+# Reproducible client payload: binaries go in APK, not Git.
+assets/clients/runtime.tar.gz

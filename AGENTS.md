@@ -10,4 +10,6 @@
 - 不卸载或覆盖用户真实 Minis；以 `test.zhangyue.minis` 隔离验收升级与数据保留。
 - 不覆盖已发布同版本 APK；发布需符合用户授权及 publish 技能。
 
+交接排版遵循 `docs/HANDOFF-FORMAT.md`：标题、状态行、勾选清单、验证与下一步分区；当前结论置顶，旧状态放历史记录。
+
 共享交接：`docs/HANDOFF.md`。维护者个人交接位于被 Git 忽略的 docs/handoff/，不得上传其中的运维和任务隐私记录。
