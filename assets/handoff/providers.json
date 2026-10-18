@@ -1,0 +1,98 @@
+[
+  {
+    "providerType": "openAI",
+    "label": "OpenCode Free（待接通官方客户端）",
+    "credentialType": "apiKey",
+    "isEnabled": false,
+    "customBaseURL": "http://127.0.0.1:18768/providers/opencode-free/v1",
+    "appendV1Suffix": false,
+    "useResponsesAPI": false,
+    "apiKey": "",
+    "models": [
+      {
+        "modelId": "glm-5.3-flash-free",
+        "displayName": "glm-5.3-flash-free",
+        "isCustom": true,
+        "isHidden": false,
+        "maxOutputTokens": 8192,
+        "supportsTools": true,
+        "supportsVision": false,
+        "supportsReasoning": true
+      },
+      {
+        "modelId": "deepseek-v4.1-flash-free",
+        "displayName": "deepseek-v4.1-flash-free",
+        "isCustom": true,
+        "isHidden": false,
+        "maxOutputTokens": 8192,
+        "supportsTools": true,
+        "supportsVision": false,
+        "supportsReasoning": true
+      }
+    ]
+  },
+  {
+    "providerType": "openAI",
+    "label": "OpenCode Go（现有套餐）",
+    "credentialType": "apiKey",
+    "isEnabled": false,
+    "customBaseURL": "http://127.0.0.1:18768/providers/opencode/v1",
+    "appendV1Suffix": false,
+    "useResponsesAPI": false,
+    "apiKey": "",
+    "models": [
+      {
+        "modelId": "deepseek-v4-flash",
+        "displayName": "deepseek-v4-flash",
+        "isCustom": true,
+        "isHidden": false,
+        "maxOutputTokens": 8192,
+        "supportsTools": true,
+        "supportsVision": false,
+        "supportsReasoning": true
+      },
+      {
+        "modelId": "deepseek-v4-pro",
+        "displayName": "deepseek-v4-pro",
+        "isCustom": true,
+        "isHidden": false,
+        "maxOutputTokens": 8192,
+        "supportsTools": true,
+        "supportsVision": false,
+        "supportsReasoning": true
+      }
+    ]
+  },
+  {
+    "providerType": "openAI",
+    "label": "ZCode API（现有套餐，非闲时免费）",
+    "credentialType": "apiKey",
+    "isEnabled": false,
+    "customBaseURL": "http://127.0.0.1:18768/providers/zcode/v1",
+    "appendV1Suffix": false,
+    "useResponsesAPI": false,
+    "apiKey": "",
+    "models": [
+      {
+        "modelId": "glm-5.3-flash",
+        "displayName": "glm-5.3-flash",
+        "isCustom": true,
+        "isHidden": false,
+        "maxOutputTokens": 8192,
+        "supportsTools": true,
+        "supportsVision": false,
+        "supportsReasoning": true
+      },
+      {
+        "modelId": "glm-5.3",
+        "displayName": "glm-5.3",
+        "isCustom": true,
+        "isHidden": false,
+        "maxOutputTokens": 8192,
+        "supportsTools": true,
+        "supportsVision": false,
+        "supportsReasoning": true
+      }
+    ]
+  }
+]

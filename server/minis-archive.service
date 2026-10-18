@@ -1,0 +1,12 @@
+[Unit]
+Description=Minis budgeted COS archive with verified NAS retention
+After=network-online.target notes-site.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/notes-site
+ExecStart=/usr/bin/python3 /opt/notes-site/minis_archive.py
+UMask=0077
+TimeoutStartSec=3600
+Nice=10
+

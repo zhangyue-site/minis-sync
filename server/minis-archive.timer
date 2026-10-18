@@ -1,0 +1,10 @@
+[Unit]
+Description=Retry Minis archive and enforce safe COS retention
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Unit=minis-archive.service
+
+[Install]
+WantedBy=timers.target

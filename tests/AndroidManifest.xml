@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="test.zhangyue.minis.acceptance">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <application android:label="Minis handoff acceptance" android:hasCode="true" />
+    <instrumentation android:name="test.HandoffInstrumentation" android:targetPackage="test.zhangyue.minis" />
+</manifest>
