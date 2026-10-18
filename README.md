@@ -1,6 +1,6 @@
 # Minis 同步版
 
-Minis Android 同步修复与开发交接扩展项目。当前交付版本 **1.14.8 / 109**。
+Minis Android 同步修复与开发交接扩展项目。当前客户端验收版本 **1.14.9 / 110**，此前交接桥版本为 1.14.8 / 109。
 
 此仓库保存 Android 补丁源码、APK 重打包脚本、服务器同步模块及验收夹具，并非完整的上游 Android Gradle 工程。构建依赖指定的上游 APK、smali 工具和 Android SDK，见 [构建说明](docs/BUILD.md)。
 
@@ -17,7 +17,9 @@ Minis Android 同步修复与开发交接扩展项目。当前交付版本 **1.1
 
 1.14.8 已验证冷启动注册 Skill、AndroidKeyStore 解密、本地错误令牌拒绝、Android 到服务端到滴答的写入及独立读回。交接相关 7 项 Python 回归通过。
 
-**尚未完成：** Minis 中官方 OpenCode/ZCode 客户端内置及模型自主开发新会话。Free API 模板目前禁用；代理模板、HTTP 200 不代表官方免费权益或客户端已可用。完整接手入口见 [当前交接](docs/HANDOFF.md)。
+1.14.9 已内置官方 ARM64 OpenCode、ZCode CLI 及 Node/Python/Git 运行库。在 ARM64 Android 的 Minis / Alpine / PRoot 内，OpenCode 全新会话已完成代码、3 项测试及主动滴答写入，106 独立读回通过。
+
+**尚未完成：** ZCode 新会话接力正进行官方账号授权与验收。Free API 模板目前禁用；代理模板、HTTP 200 不代表官方免费权益或客户端已可用。完整接手入口见 [当前交接](docs/HANDOFF.md)。
 
 ## 测试
 

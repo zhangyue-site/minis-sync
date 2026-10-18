@@ -1,8 +1,8 @@
 # Minis｜内置官方开发客户端与跨会话接力
 
-> 🟡 **进行中** · 更新：2026-10-18T13:55+08:00
+> 🟡 **进行中** · 更新：2026-10-18T14:23+08:00
 >
-> OpenCode、ZCode 已在 ARM64 Android 内真实运行；完整开发与自动交接仍待通过。交接已改为分区、勾选和验证表格。
+> OpenCode 已在 Minis 的 ARM64 Android / Alpine / PRoot 内完成真实新会话：代码、3 项测试及滴答写入/独立读回。ZCode 正接手同一项目。
 
 ## 已完成
 
@@ -11,14 +11,15 @@
 - [x] Minis 原生 Rootfs / PRoot 在专用 ARM64 Android 模拟器内执行。
 - [x] 实际版本：OpenCode `1.18.3`、ZCode CLI `0.16.9`、Node `24.18.1`、Python `3.12.15`。
 - [x] 修复 OpenCode 加载方式与 Node ICU 数据路径；添加 `coding-clients` Skill。
-- [x] 交接排版规范加入桌面 Skill 和 Minis 内置 Skill；模板见 [HANDOFF-FORMAT.md](HANDOFF-FORMAT.md)。
+- [x] 交接排版规范加入桌面 Skill 和 Minis 内置 Skill；模板见 [HANDOFF-FORMAT.md](HANDOFF-FORMAT.md)。旧安装补充格式参考、保留个人内容的升级代码已编译并签名，待 Android 升级实测。
 
 ## 待处理
 
-- [ ] **OpenCode 全新会话：** 首轮自动读取交接 Skill 时被工作区权限拒绝，未完成代码和测试；退出码 0 不代表成功。
-- [ ] 全局 Skill 目录注册代码已补入并编译，待重建安装和新会话复验；未放开整个文件系统权限。
-- [ ] ZCode 新会话接手同一项目，完成后续功能、测试与滴答写入/独立读回。
-- [ ] 最终 APK 验收、代码及交接同步 GitHub 和滴答。
+- [x] OpenCode 全新会话 `ses_eb259c181ffeS7M1DmKm8ZZRaS` 实现函数、3 项测试通过并主动同步；桥返回 `verified=true`，106 独立读回确认同一任务区段存在。
+- [x] 标准全局 Skill 入口由 APK 实际创建，权限读取通过；没有放开整个文件系统。
+- [x] 恢复服务端已鉴权的 owner_features 路由，修复同步入口 `not_found`；保留同期 NAS 服务改动。
+- [ ] ZCode 新会话接手同一项目：首轮报“尚未选择模型”，桌面凭据存在设备相关加密，已移除测试副本并改走 Android CLI 官方登录。微信登录页面等待用户完成拼图验证；之后新增功能与 2 项测试并自动更新同一滴答任务。
+- [ ] 最终 APK 验收、撤销临时同步会话、代码及交接同步 GitHub。
 
 ## 验证
 
@@ -29,22 +30,23 @@
 | Node / Python 命令 | ✅ 通过 | Node 24.18.1；Python 3.12.15 |
 | 客户端资源排除私人凭据 | ✅ 2 项测试通过 | `tests/test_client_payload.py` |
 | 交接冲突、幂等及安全回归 | ✅ 7 项通过 | `tests/test_handoff.py` |
-| OpenCode 自主开发及自动交接 | 🔴 未通过 | 外部路径读取被拒绝；没有完成实现 |
-| ZCode 原生接力会话 | 🧪 尚未运行 | 等待前一客户端完成 |
+| 真实 POST 分发鉴权回归 | ✅ 3 项通过 | `tests/test_handoff_dispatch.py`，生产已鉴权读接口复核通过 |
+| OpenCode 自主开发及自动交接 | ✅ 通过 | 新会话实现函数、3 tests OK、verified=true、106 独立读回 |
+| ZCode 原生接力会话 | 🧪 执行中 | 同一项目与滴答任务 |
 
 ## 下一步
 
-1. 重建包含全局 Skill 注册修复的安装包；`ClientBootstrap.java` 已编译，保留用户命令、符号链接及配置。
-2. 恢复专用 ARM64 测试模拟器；中断后该设备已断开，先核对现存进程与应用数据。
-3. 用普通开发提示启动 OpenCode 全新会话；确认真实文件修改、测试输出和滴答读回。
-4. 让 ZCode 新会话接手同一项目；达到同样验收条件后再标记闭环完成。
+1. 用户完成官方微信登录拼图后，检查 Android CLI 登录结果并重新启动 ZCode 全新会话：是否读取旧交接、保留原代码与 3 项测试、增加功能并达到 5 项测试通过。
+2. 独立读回滴答，确认同一任务/稳定键更新，保留 OpenCode 及其他区段。
+3. 核验最终正式 APK 签名与摘要、撤销临时同步会话，提交并推送本轮客户端文件。
 
 ## 接力入口
 
 - **仓库：** [xiaoletian64/minis-sync](https://github.com/xiaoletian64/minis-sync)（私有），分支 `main`。
 - **当前执行：** Codex；负责客户端安装、启动、排版和验收。
 - **代码：** [ClientBootstrap.java](../src/site/zhangyue/minis/handoff/ClientBootstrap.java)、[启动脚本](../assets/clients/launch)、[资源打包](../scripts/prepare_clients.py)。
-- **验收：** [ClientRuntimeInstrumentation.java](../tests/ClientRuntimeInstrumentation.java)。
+- **验收：** [ClientRuntimeInstrumentation.java](../tests/ClientRuntimeInstrumentation.java)、[命令入口](../scripts/verify_native_clients.py)。
+- **待安装升级：** 最新格式升级包已生成，待登录流程结束再安装，避免中断官方授权。
 - **其他工作区改动：** NAS 模块及测试正在并行修改，未纳入本轮客户端提交。
 - **账号：** 测试凭据仅在受控测试环境，临时同步会话需要在验收结束后撤销；不上传账号或原始日志。
 

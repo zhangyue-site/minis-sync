@@ -66,6 +66,7 @@ public final class HandoffBootstrap {
             if (imported == null || !new File(dir, "SKILL.md").isFile())
                 throw new IOException("skill_import_failed");
         }
+        upgradeFormatting(context, dir);
         SharedPreferences prefs = context.getSharedPreferences("handoff-bootstrap", Context.MODE_PRIVATE);
         if (!prefs.getBoolean("providers-v1", false)) {
             Object providers = findProvider(context);
@@ -83,6 +84,42 @@ public final class HandoffBootstrap {
         }
         prefs.edit().putBoolean("skill-installed", true).commit();
         Log.i("MinisHandoff", "skill registered; model templates available");
+    }
+
+    /** Add the new format to existing installations without replacing personal skill text. */
+    private static void upgradeFormatting(Context context, File dir) throws Exception {
+        File reference = new File(dir, "references/handoff-format.md");
+        if (!reference.isFile()) {
+            try (java.util.zip.ZipInputStream zip = new java.util.zip.ZipInputStream(context.getAssets().open("handoff/dida-dev-handoff.zip"))) {
+                java.util.zip.ZipEntry entry;
+                while ((entry = zip.getNextEntry()) != null) {
+                    if (entry.getName().equals("dida-dev-handoff/references/handoff-format.md")) {
+                        ByteArrayOutputStream out = new ByteArrayOutputStream(); byte[] b = new byte[4096]; int n;
+                        while ((n = zip.read(b)) != -1) { if (out.size()+n > 65536) throw new IOException("format_reference_too_large"); out.write(b,0,n); }
+                        atomicWrite(reference, out.toByteArray()); break;
+                    }
+                }
+            }
+            if (!reference.isFile()) throw new IOException("format_reference_missing");
+        }
+        File skill = new File(dir, "SKILL.md");
+        String text = new String(read(new FileInputStream(skill), 256*1024), StandardCharsets.UTF_8);
+        if (!text.contains("references/handoff-format.md")) {
+            text += "\n\n<!-- minis-managed-format-v1 -->\n## 交接排版\n默认采用 Markdown 标题、带文字的状态行、空行和勾选清单；当前结论置顶，历史记录置后。滴答短版、仓库完整版，模板见 references/handoff-format.md。正文勾选不改变滴答任务或子项状态。\n<!-- /minis-managed-format-v1 -->\n";
+            atomicWrite(skill, text.getBytes(StandardCharsets.UTF_8));
+        }
+        File mobile = new File(dir, "references/mobile.md");
+        if (mobile.isFile()) {
+            String old = new String(read(new FileInputStream(mobile), 65536), StandardCharsets.UTF_8);
+            String updated = old.replace("ZCode账号权益请本人从 https://erweima.zhangyue.site/zcode-login 登录官方客户端；", "ZCode账号请执行 `zcode login bigmodel --no-browser`，在系统浏览器打开 CLI 返回的官方链接完成授权；");
+            if (!updated.equals(old)) atomicWrite(mobile, updated.getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    private static void atomicWrite(File file, byte[] content) throws Exception {
+        file.getParentFile().mkdirs(); File temp = new File(file.getPath()+".minis-tmp");
+        try (FileOutputStream out = new FileOutputStream(temp)) { out.write(content); out.getFD().sync(); }
+        if (!temp.renameTo(file)) throw new IOException("format_replace_failed");
     }
 
     private static Object findProvider(Context context) throws Exception {
