@@ -1,6 +1,6 @@
 # Minis｜内置官方开发客户端与跨会话接力
 
-> 🟡 **进行中** · 更新：2026-10-18T14:26+08:00
+> 🟡 **进行中** · 更新：2026-10-18T16:00+08:00
 >
 > OpenCode 已在 Minis 的 ARM64 Android / Alpine / PRoot 内完成真实新会话：代码、3 项测试及滴答写入/独立读回。ZCode 正接手同一项目。
 
@@ -11,14 +11,14 @@
 - [x] Minis 原生 Rootfs / PRoot 在专用 ARM64 Android 模拟器内执行。
 - [x] 实际版本：OpenCode `1.18.3`、ZCode CLI `0.16.9`、Node `24.18.1`、Python `3.12.15`。
 - [x] 修复 OpenCode 加载方式与 Node ICU 数据路径；添加 `coding-clients` Skill。
-- [x] 交接排版规范加入桌面 Skill 和 Minis 内置 Skill；模板见 [HANDOFF-FORMAT.md](HANDOFF-FORMAT.md)。旧安装补充格式参考、保留个人内容的升级代码已编译并签名，待 Android 升级实测。
+- [x] 交接排版规范加入桌面 Skill 和 Minis 内置 Skill；模板见 [HANDOFF-FORMAT.md](HANDOFF-FORMAT.md)。旧安装的格式参考与官方登录指引已在 Android 升级实测通过，原个人注释保留。
 
 ## 待处理
 
 - [x] OpenCode 全新会话 `ses_eb259c181ffeS7M1DmKm8ZZRaS` 实现函数、3 项测试通过并主动同步；桥返回 `verified=true`，106 独立读回确认同一任务区段存在。
 - [x] 标准全局 Skill 入口由 APK 实际创建，权限读取通过；没有放开整个文件系统。
 - [x] 恢复服务端已鉴权的 owner_features 路由，修复同步入口 `not_found`；保留同期 NAS 服务改动。
-- [ ] ZCode 新会话接手同一项目：首轮报“尚未选择模型”，桌面凭据存在设备相关加密，已移除测试副本并改走 Android CLI 官方登录。官方授权已超时。用户要求在实际 Android 设备上登录；当前只连接 ARM64 模拟器，未安装微信，等待确认并连接目标真机。不得索取密码或把打开微信误记为授权完成；之后新增功能与 2 项测试并自动更新同一滴答任务。
+- [ ] ZCode 新会话接手同一项目：首轮报“尚未选择模型”，桌面凭据存在设备相关加密，已移除测试副本并改走 Android CLI 官方登录。官方授权已超时。用户指定小米 6；新 USB 设备已接入但未授权，型号待核实。免 root 的 USB 回环临时同步会话传递已在 ARM64 Android 通过；不得索取密码或把打开微信误记为授权完成；之后新增功能与 2 项测试并自动更新同一滴答任务。
 - [ ] 最终 APK 验收、撤销临时同步会话、代码及交接同步 GitHub。
 
 ## 验证
@@ -32,11 +32,14 @@
 | 交接冲突、幂等及安全回归 | ✅ 7 项通过 | `tests/test_handoff.py` |
 | 真实 POST 分发鉴权回归 | ✅ 3 项通过 | `tests/test_handoff_dispatch.py`；生产已鉴权读成功、未登录 401 |
 | OpenCode 自主开发及自动交接 | ✅ 通过 | 新会话实现函数、3 tests OK、verified=true、106 独立读回 |
-| ZCode 原生接力会话 | 🧪 执行中 | 同一项目与滴答任务 |
+| 免 root USB 临时会话 | ✅ 通过 | 一次性回环传递后 Android 内读回滴答成功，转发与临时会话已清理 |
+| 一次性令牌通道回归 | ✅ 2 项通过 | 错误路径不可读、成功后不可复用、关闭后不可访问 |
+| 旧安装格式升级 | ✅ 通过 | 格式参考补全、官方登录指引修正、原个人注释保留 |
+| ZCode 原生接力会话 | 🔴 待设备授权 | USB 未授权，官方登录未完成，未通过 |
 
 ## 下一步
 
-1. 连接用户指定的 Android 真机，先核实 Minis、微信及官方授权入口；由设备上的 CLI 重新生成登录链接。登录成功后重新启动 ZCode 全新会话：是否读取旧交接、保留原代码与 3 项测试、增加功能并达到 5 项测试通过。
+1. 用户在 USB 手机上允许调试后，核实是否为指定小米 6，再检查 Minis、微信及官方授权入口；由设备上的 CLI 重新生成登录链接。登录成功后重新启动 ZCode 全新会话：是否读取旧交接、保留原代码与 3 项测试、增加功能并达到 5 项测试通过。
 2. 独立读回滴答，确认同一任务/稳定键更新，保留 OpenCode 及其他区段。
 3. 核验最终正式 APK 签名与摘要、撤销临时同步会话，提交并推送本轮客户端文件。
 
@@ -46,12 +49,12 @@
 - **当前执行：** Codex；负责客户端安装、启动、排版和验收。
 - **代码：** [ClientBootstrap.java](../src/site/zhangyue/minis/handoff/ClientBootstrap.java)、[启动脚本](../assets/clients/launch)、[资源打包](../scripts/prepare_clients.py)。
 - **验收：** [ClientRuntimeInstrumentation.java](../tests/ClientRuntimeInstrumentation.java)、[命令入口](../scripts/verify_native_clients.py)。
-- **待安装升级：** 最新格式升级包已生成，待登录流程结束再安装，避免中断官方授权。
+- **升级实测：** 最新格式升级包已安装到隔离 ARM64 测试设备；个人内容保留、格式参考补全、旧登录入口更正均通过。
 - **已推送代码：** `98610fb`；此文后续提交记录当前等待状态。
 - **正式 APK 摘要：** `244415a80ff627bc0a7b68c7f99e819b465c63ef687bb72f83ab82cebaf94877`，家族签名再次验证通过；完整 ZCode 接力尚未验收，未发布。
-- **登录等待：** 专用 ARM64 测试设备 `emulator-5580` 的 CLI 已返回 Authorization timed out，且此设备未装微信；真实手机尚未连接。后续重新由目标 Android 的 CLI 生成登录链接，不能复用旧 state。临时同步会话仅供隔离验收，结束后撤销。
+- **登录等待：** 专用 ARM64 测试设备 `emulator-5580` 的 CLI 已返回 Authorization timed out，且此设备未装微信；新 USB 设备已出现但 unauthorized；用户指定小米 6，型号仍须授权后核实。后续重新由目标 Android 的 CLI 生成登录链接，不能复用旧 state。本轮隔离验收临时同步会话已撤销，USB 转发已移除；后续验收须重新签发短时会话。
 - **其他工作区改动：** NAS 模块及测试正在并行修改，未纳入本轮客户端提交。
-- **账号：** 测试凭据仅在受控测试环境，临时同步会话需要在验收结束后撤销；不上传账号或原始日志。
+- **账号：** 测试凭据仅在受控测试环境，本轮临时同步会话已撤销；不上传账号或原始日志。
 
 ## 历史记录
 

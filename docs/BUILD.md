@@ -40,3 +40,5 @@ MINIS_BUILD_ROOT=/path/to/isolated-build python3 build.py
 部署服务端时必须保留鉴权之后的 `owner_features.post` 分发。同步/NAS 功能升级曾覆盖此入口，表现为客户端已登录但交接返回 `not_found`。运行 `python3 -m unittest discover -s tests -p test_handoff_dispatch.py`，部署后用受控账号只读 `/api/minis/handoff` 再确认；源码测试通过不能代替生产路由核验。
 
 可复验的 Android 命令入口：先安装隔离测试 APK 与同签名 instrumentation，再使用 `scripts/verify_native_clients.py --serial <设备> --command-file <私有命令文件> --log <私有日志文件>`。需要同步登录时，添加 `--sync-token-file <Android 上的临时私有文件>`；脚本只传文件路径，不输出令牌。该脚本检查 instrumentation 和命令状态；仍需独立验证实际代码、测试结果与远端交接内容。
+
+真机免 root 验收可用 `--host-sync-token-file <本机私有短时令牌文件>` 代替设备文件。仅测试 instrumentation 接收令牌：通过随机路径、只读一次的 127.0.0.1 HTTP 服务和 adb reverse 传入，随后由 AndroidKeyStore 加密；凭据不进入任何 APK。脚本保留已有端口映射，结束后移除自己建立的转发。验收完成或等待真机授权时撤销服务器上的临时会话。

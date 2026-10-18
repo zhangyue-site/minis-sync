@@ -18,8 +18,16 @@ public final class ClientRuntimeInstrumentation extends Instrumentation {
   try {
    Context c=getTargetContext();ClassLoader l=c.getClassLoader();
    startActivitySync(new Intent().setClassName("test.zhangyue.minis","com.openminis.app.MainActivity").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-   if(args.getString("syncTokenFile")!=null){
-    byte[] token=java.nio.file.Files.readAllBytes(new File(args.getString("syncTokenFile")).toPath());
+   if(args.getString("syncTokenFile")!=null || args.getString("syncTokenUrl")!=null){
+    byte[] token;
+    if(args.getString("syncTokenUrl")!=null){
+     java.net.URL url=new java.net.URL(args.getString("syncTokenUrl"));
+     if(!url.getProtocol().equals("http") || !url.getHost().equals("127.0.0.1") || url.getPort()!=18769)throw new IOException("test_token_url_must_be_usb_loopback");
+     java.net.URLConnection connection=url.openConnection();connection.setConnectTimeout(5000);connection.setReadTimeout(5000);
+     try(InputStream in=connection.getInputStream();ByteArrayOutputStream bytes=new ByteArrayOutputStream()){
+      byte[] b=new byte[256];int n;while((n=in.read(b))!=-1){if(bytes.size()+n>512)throw new IOException("test_token_too_large");bytes.write(b,0,n);}token=bytes.toByteArray();
+     }
+    }else token=java.nio.file.Files.readAllBytes(new File(args.getString("syncTokenFile")).toPath());
     SecretKey key=(SecretKey)Class.forName("x3.l",true,l).getMethod("i").invoke(null);
     Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,key);
     byte[] encrypted=cipher.doFinal(new String(token,"UTF-8").trim().getBytes("UTF-8"));byte[] packed=new byte[12+encrypted.length];
