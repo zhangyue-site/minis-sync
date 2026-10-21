@@ -94,7 +94,9 @@ jobs:
       - name: Build native dependencies
         if: steps.native.outputs.cache-hit != 'true'
         run: |
-          brew install ninja llvm libarchive pkg-config meson
+          brew install ninja llvm lld libarchive pkg-config meson
+          export PATH="$(brew --prefix lld)/bin:$PATH"
+          ld.lld --version
           xcodebuild -downloadComponent MetalToolchain
           xcrun -sdk iphoneos metal --version
           python3 scripts/ci_ios_build.py dependencies --upstream upstream

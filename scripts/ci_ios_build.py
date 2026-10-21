@@ -9,6 +9,7 @@ import plistlib
 import re
 import shutil
 import subprocess
+import tempfile
 import zipfile
 
 BUNDLE='site.zhangyue.minis.sync'
@@ -26,6 +27,14 @@ def configure(root):
     p.write_bytes(plistlib.dumps(data,sort_keys=False))
 
 def dependencies(root):
+    # Homebrew ships LLD separately from LLVM. Prove the exact Linux ARM64
+    # cross-link needed by iSH before spending time compiling FFmpeg.
+    llvm=Path(subprocess.check_output(['brew','--prefix','llvm'],text=True).strip())/'bin/clang'
+    with tempfile.TemporaryDirectory(prefix='minis-vdso-toolchain-') as temporary:
+        probe=Path(temporary)/'probe.so'
+        subprocess.run([str(llvm),'-target','aarch64-linux-gnu','-fuse-ld=lld','-nostdlib','-shared','-ffreestanding','-x','c','-','-o',str(probe)],input='int minis_link_probe(void) { return 0; }\n',text=True,check=True)
+        header=probe.read_bytes()[:20]
+        if header[:4]!=b'\x7fELF' or int.from_bytes(header[18:20],'little')!=183:raise ValueError('vdso_linker_not_aarch64_elf')
     for script in ('build_lame.sh','build_ffmpeg.sh','build_ish.sh','prepare_alpine_rootfs.sh'):
         run('bash',root/'deps'/script,cwd=root)
     # The deliverable is an iPhone device build; avoid spending disk and
