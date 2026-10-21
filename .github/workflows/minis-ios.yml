@@ -1,0 +1,119 @@
+name: Minis iPhone custom build
+run-name: ${{ inputs.release_id || format('Minis iOS {0} ({1})', inputs.build_name, inputs.build_number) }}
+on:
+  workflow_dispatch:
+    inputs:
+      build_name:
+        description: Marketing version
+        required: true
+        default: '1.0.0'
+        type: string
+      build_number:
+        description: Unused ascending Apple build number
+        required: true
+        default: '1'
+        type: string
+      platform:
+        description: Build platform
+        required: true
+        default: ios
+        type: choice
+        options: [ios]
+      release_id:
+        description: Server coordination identity
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: minis-ios-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Verify cloud workspace merge
+        run: python3 -m unittest discover -s tests/cloud-v3-reference -v
+  ios:
+    needs: backend-tests
+    runs-on: macos-26
+    timeout-minutes: 180
+    env:
+      UPSTREAM_REF: b4c0661d5631ebab4d1a2e6f3fd4c805d4030a6c
+      GOMEMLIMIT: 4GiB
+      GOMAXPROCS: '3'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Select Xcode 26.2
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+          xcodebuild -version
+          df -h .
+      - name: Verify persistent sync and native data application
+        run: swift test --package-path ios/MinisSyncCore
+      - name: Checkout fixed upstream sources
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: OpenMinis/OpenMinis
+          ref: b4c0661d5631ebab4d1a2e6f3fd4c805d4030a6c
+          path: upstream
+          persist-credentials: false
+      - name: Prepare custom app
+        run: |
+          git -C upstream submodule update --init --recursive deps/ish
+          python3 scripts/prepare_ios_sync.py --upstream upstream --bundle-id site.zhangyue.minis.sync
+          python3 scripts/ci_ios_build.py configure --upstream upstream
+          python3 tests/verify_ios_archives.py --upstream upstream
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
+        with:
+          go-version: '1.25.7'
+          cache: false
+      - name: Restore native dependencies
+        id: native
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            upstream/deps/frameworks
+            upstream/deps/libs
+            upstream/deps/include
+            upstream/deps/resources
+            upstream/deps/lame-build
+          key: minis-ios26-arm64-native-v1-${{ env.UPSTREAM_REF }}-${{ hashFiles('scripts/ci_ios_build.py') }}
+      - name: Build native dependencies
+        if: steps.native.outputs.cache-hit != 'true'
+        run: |
+          brew install ninja llvm libarchive pkg-config meson
+          xcodebuild -downloadComponent MetalToolchain
+          xcrun -sdk iphoneos metal --version
+          python3 scripts/ci_ios_build.py dependencies --upstream upstream
+      - name: Build unsigned device application
+        env:
+          BUILD_NAME: ${{ inputs.build_name }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: python3 scripts/ci_ios_build.py build --upstream upstream --version "$BUILD_NAME" --number "$BUILD_NUMBER" --output artifacts
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: minis-ios-unsigned-${{ inputs.build_name }}-${{ inputs.build_number }}
+          path: |
+            artifacts/minis-ios-unsigned.ipa
+            artifacts/build-manifest.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: minis-ios-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/*.log
+            artifacts/*.xcresult
+            upstream/src/ios/MinisWorkspace/overlay-manifest.json
+          if-no-files-found: ignore
+          retention-days: 7

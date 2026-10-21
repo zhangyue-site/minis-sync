@@ -34,3 +34,7 @@ server/*.plist
 
 # Reproducible client payload: binaries go in APK, not Git.
 assets/clients/runtime.tar.gz
+
+ios/MinisSyncCore/.build/
+ios/MinisSyncCore/.swiftpm/
+!docs/IOS-SYNC.md
