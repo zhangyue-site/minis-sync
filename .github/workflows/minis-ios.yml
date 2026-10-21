@@ -19,6 +19,12 @@ on:
         default: ios
         type: choice
         options: [ios]
+      macos_runner:
+        description: Standard hosted runner; Intel fallback for arm64 capacity failures
+        required: true
+        default: macos-26-intel
+        type: choice
+        options: [macos-26-intel, macos-26]
       release_id:
         description: Server coordination identity
         required: false
@@ -40,7 +46,7 @@ jobs:
         run: python3 -m unittest discover -s tests/cloud-v3-reference -v
   ios:
     needs: backend-tests
-    runs-on: macos-26
+    runs-on: ${{ inputs.macos_runner }}
     timeout-minutes: 180
     env:
       UPSTREAM_REF: b4c0661d5631ebab4d1a2e6f3fd4c805d4030a6c
@@ -84,7 +90,7 @@ jobs:
             upstream/deps/include
             upstream/deps/resources
             upstream/deps/lame-build
-          key: minis-ios26-arm64-native-v1-${{ env.UPSTREAM_REF }}-${{ hashFiles('scripts/ci_ios_build.py') }}
+          key: minis-ios26-${{ runner.arch }}-native-v1-${{ env.UPSTREAM_REF }}-${{ hashFiles('scripts/ci_ios_build.py') }}
       - name: Build native dependencies
         if: steps.native.outputs.cache-hit != 'true'
         run: |
