@@ -98,6 +98,17 @@ jobs:
           xcodebuild -downloadComponent MetalToolchain
           xcrun -sdk iphoneos metal --version
           python3 scripts/ci_ios_build.py dependencies --upstream upstream
+      - name: Save native dependencies before compiling app
+        if: steps.native.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            upstream/deps/frameworks
+            upstream/deps/libs
+            upstream/deps/include
+            upstream/deps/resources
+            upstream/deps/lame-build
+          key: minis-ios26-${{ runner.arch }}-native-v1-${{ env.UPSTREAM_REF }}-${{ hashFiles('scripts/ci_ios_build.py') }}
       - name: Build unsigned device application
         env:
           BUILD_NAME: ${{ inputs.build_name }}

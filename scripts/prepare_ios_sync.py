@@ -18,6 +18,9 @@ def prepare(upstream, bundle_id="site.zhangyue.minis.workspaceqa"):
     commit = subprocess.check_output(['git','-C',str(upstream),'rev-parse','HEAD'],text=True).strip()
     if commit != PIN: raise ValueError('upstream_commit_mismatch')
     ios = upstream/'src/ios'
+    previous_manifest=ios/'MinisWorkspace/overlay-manifest.json'
+    if previous_manifest.exists() and json.loads(previous_manifest.read_text()).get('bundle_id')!=bundle_id:
+        raise ValueError('namespace_change_requires_fresh_checkout')
     state_path=upstream/'.minis-workspace-overlay-state.json'
     state=json.loads(state_path.read_text()) if state_path.exists() else {}
     patched=[]
@@ -82,11 +85,15 @@ def prepare(upstream, bundle_id="site.zhangyue.minis.workspaceqa"):
         s=s.replace('com.openminis.app',bundle_id).replace('com.openminis.Minis',bundle_id)
         return s
     patch(Path('Minis.xcodeproj/project.pbxproj'),project)
+    patch(Path('ShareExtension/ShareViewController.swift'),lambda s:s.replace('minis://share',bundle_id+'://share'))
+    patch(Path('Shared/DeepLinkRouter.swift'),lambda s:s.replace('guard url.scheme == "minis", let host = url.host else {','guard (url.scheme == "minis" || url.scheme == "'+bundle_id+'"), let host = url.host else {',1))
     # The QA app must never join the official app's containers or CloudKit.
     for target in ios.rglob('*'):
-        if target.suffix not in ('.swift','.entitlements'):continue
+        if target.suffix not in ('.swift','.entitlements') and target.name!='Info.plist':continue
         current=target.read_text()
-        changed=current.replace('group.com.openminis.app','group.'+bundle_id).replace('iCloud.com.openminis.app','iCloud.'+bundle_id)
+        changed=current.replace('group.com.openminis.app','group.'+bundle_id).replace('iCloud.com.openminis.app','iCloud.'+bundle_id).replace('com.openminis.app.files',bundle_id+'.files')
+        if target==ios/'Info.plist' and '<string>'+bundle_id+'</string>' not in changed:
+            changed=changed.replace('<string>minis</string>','<string>minis</string>\n                <string>'+bundle_id+'</string>',1)
         if changed!=current:target.write_text(changed)
     state_path.write_text(json.dumps({key:hashlib.sha256((ios/key).read_bytes()).hexdigest() for key in patched},indent=2)+'\n')
     metadata={'patcher_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'extension_sha256':hashlib.sha256((ROOT/'ios/Overlay/ChatStoreWorkspaceExtension.swift.inc').read_bytes()).hexdigest(),'bundle_id':bundle_id,'upstream':PIN,'sources':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'production_modified':False}
