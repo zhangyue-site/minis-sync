@@ -1,7 +1,7 @@
 import hashlib, http.client, io, json, sys, tempfile, threading, unittest, zipfile
 from pathlib import Path
 from unittest.mock import patch
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'server'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'integrations'/'cloud-v3'))
 from minis_cloud import CloudStore
 from minis_cloud_http import create_server, handle, RecoveryUnavailable
 
@@ -23,7 +23,7 @@ class CloudHTTPTests(unittest.TestCase):
         entries={'data/sessions.jsonl':raw}; entries['manifest.json']=json.dumps({'categories':{'chats':True},'integrity':{'data/sessions.jsonl':hashlib.sha256(raw).hexdigest()}}).encode()
         b=io.BytesIO()
         with zipfile.ZipFile(b,'w') as z:
-            for k,v in entries.items():z.writestr(k,v)
+            for k,v in entries.items():z.writestr(zipfile.ZipInfo(k,date_time=(2020,1,1,0,0,0)),v)
         return b.getvalue()
     def commit(self,raw,op='one',extra=''):
         status,_,body=self.request('POST','/api/minis/v3/commit?device=a&op='+op+'&name=a.minisbak'+extra,raw)

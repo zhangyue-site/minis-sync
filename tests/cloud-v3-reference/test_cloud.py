@@ -14,7 +14,7 @@ class CloudTests(unittest.TestCase):
         entries['manifest.json']=json.dumps({'format':1,'categories':{'chats':True},'integrity':{k:hashlib.sha256(v).hexdigest() for k,v in entries.items()}}).encode()
         b=io.BytesIO()
         with zipfile.ZipFile(b,'w') as z:
-            for k,v in entries.items(): z.writestr(k,v)
+            for k,v in entries.items(): z.writestr(zipfile.ZipInfo(k,date_time=(2020,1,1,0,0,0)),v)
         return b.getvalue()
     def commit(self,rows,base=None,device='a',op='op',uid='1'):
         data=self.package(rows)
