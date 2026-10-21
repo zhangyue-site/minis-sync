@@ -1,4 +1,4 @@
-import hashlib, http.client, io, json, sys, tempfile, threading, unittest, zipfile
+import hashlib, http.client, io, json, sys, tempfile, threading, time, unittest, zipfile
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'integrations'/'cloud-v3'))
@@ -14,10 +14,17 @@ class CloudHTTPTests(unittest.TestCase):
         self.addCleanup(self.close)
     def close(self):
         self.server.shutdown(); self.server.server_close(); self.thread.join()
-    def request(self,method,path,body=None,token='alpha',headers=None):
+    def request(self,method,path,body=None,token='alpha',headers=None,retry_busy=True):
         c=http.client.HTTPConnection('127.0.0.1',self.server.server_port,timeout=3)
         h={'Authorization':'Bearer '+token};h.update(headers or {})
-        c.request(method,path,body=body,headers=h);r=c.getresponse();raw=r.read();result=(r.status,dict(r.getheaders()),raw);c.close();return result
+        for attempt in range(100):
+            c.request(method,path,body=body,headers=h);r=c.getresponse();raw=r.read();result=(r.status,dict(r.getheaders()),raw);c.close()
+            if not retry_busy or r.status!=503 or json.loads(raw).get('error')!='busy':return result
+            # A completed response can reach the client just before the handler
+            # releases its merge slot. Busy is explicitly retryable in protocol.
+            time.sleep(0.01)
+            c=http.client.HTTPConnection('127.0.0.1',self.server.server_port,timeout=3)
+        self.fail('loopback service remained busy')
     def package(self,value='x'):
         raw=(json.dumps({'v':1,'t':'session','d':{'id':value}})+'\n').encode()
         entries={'data/sessions.jsonl':raw}; entries['manifest.json']=json.dumps({'categories':{'chats':True},'integrity':{'data/sessions.jsonl':hashlib.sha256(raw).hexdigest()}}).encode()
@@ -95,7 +102,7 @@ class CloudHTTPTests(unittest.TestCase):
             worker=threading.Thread(target=lambda:results.append(self.request('GET','/api/minis/v3/head')))
             worker.start();self.assertTrue(entered.wait(2))
             try:
-                status,h,raw=self.request('POST','/api/minis/v3/commit?device=a&op=busy',b'',headers={'Content-Length':'100000000'})
+                status,h,raw=self.request('POST','/api/minis/v3/commit?device=a&op=busy',b'',headers={'Content-Length':'100000000'},retry_busy=False)
                 self.assertEqual(status,503);self.assertEqual(json.loads(raw)['error'],'busy');self.assertEqual(json.loads(raw)['retry_after'],1)
                 self.assertEqual(h['Retry-After'],'1')
             finally:release.set();worker.join(3)
