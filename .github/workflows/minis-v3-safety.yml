@@ -1,0 +1,18 @@
+name: Minis v3 safety
+on:
+  push:
+    paths: ['server/v3/**', 'tests/v3/**', '.github/workflows/minis-v3-safety.yml']
+  pull_request:
+    paths: ['server/v3/**', 'tests/v3/**', '.github/workflows/minis-v3-safety.yml']
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m unittest discover -s tests/v3 -v
