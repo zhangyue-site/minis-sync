@@ -31,6 +31,7 @@ class CloudStore:
             c.execute('CREATE TABLE IF NOT EXISTS known_records(uid TEXT,path TEXT,k TEXT,deleted INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(uid,path,k)) WITHOUT ROWID')
             c.execute('CREATE TABLE IF NOT EXISTS inventory_heads(uid TEXT PRIMARY KEY,sha TEXT)')
             c.execute('CREATE TABLE IF NOT EXISTS legacy_devices(uid TEXT,device TEXT,source_sha TEXT,PRIMARY KEY(uid,device))')
+            c.execute('CREATE TABLE IF NOT EXISTS device_profile_baselines(uid TEXT,device TEXT,sha TEXT,applied_at INTEGER,PRIMARY KEY(uid,device,sha))')
             c.execute('CREATE TABLE IF NOT EXISTS versions(uid TEXT, version INTEGER, sha TEXT, receipt TEXT, PRIMARY KEY(uid,version))')
             c.execute('CREATE TABLE IF NOT EXISTS heads(uid TEXT PRIMARY KEY, version INTEGER)')
             c.execute('CREATE TABLE IF NOT EXISTS operations(uid TEXT, device TEXT, op TEXT, signature TEXT, receipt TEXT, PRIMARY KEY(uid,device,op))')
@@ -81,12 +82,15 @@ class CloudStore:
         return {'sha256':sha,'bytes':path.stat().st_size,'entries':entries,'manifest':manifest}
     @staticmethod
     def _scope(scope):
-        if scope not in ('all','chats'):raise InvalidBackup('bad_scope')
+        if scope not in ('all','chats','profile'):raise InvalidBackup('bad_scope')
         return scope
     def ack(self,uid,device,sha,scope='all'):
         uid=self.snapshots._uid(uid); device=self._key(device,'device'); scope=self._scope(scope)
         with self._lock(uid):
             if not self._known(uid,sha):raise CloudConflict('applied_version_not_found')
+            if scope=='profile':
+                with self._db() as c:c.execute('INSERT OR IGNORE INTO device_profile_baselines VALUES(?,?,?,?)',(uid,device,sha,int(time.time())))
+                return {'device':device,'sha256':sha,'applied':True,'applied_scope':'profile'}
             with self._db() as c:
                 row=c.execute('SELECT receipt FROM versions WHERE uid=? AND sha=? ORDER BY version DESC LIMIT 1',(uid,sha)).fetchone()
             if scope=='all' and json.loads(row['receipt']).get('scope','all')=='chats':raise CloudConflict('version_scope_mismatch')
@@ -99,6 +103,7 @@ class CloudStore:
     def commit(self,uid,device,base_sha,op_id,stream,length,name,mode='full',scope='all'):
         uid=self.snapshots._uid(uid); device=self._key(device,'device'); op_id=self._key(op_id,'operation')
         scope=self._scope(scope)
+        if scope=='profile':raise InvalidBackup('profile_is_ack_only')
         if mode not in ('full','delta'):raise InvalidBackup('bad_mode')
         if base_sha == '':base_sha=None
         if base_sha is not None and (not isinstance(base_sha,str) or not re.fullmatch('[a-f0-9]{64}',base_sha)):raise CloudConflict('base_version_not_found')
@@ -137,7 +142,8 @@ class CloudStore:
                     def deleted(path,key):
                         r=inventory.execute('SELECT deleted FROM known_records WHERE uid=? AND path=? AND k=?',(uid,path,key)).fetchone()
                         return bool(r and r['deleted'])
-                    stats=merge_backups(self.path(uid,base_sha) if base_sha else None,local_path,self.path(uid,current['sha256']) if current else local_path,merged,scope=scope,legacy_deleted=deleted if base_sha is None else None)
+                    profile_applied=bool(base_sha and inventory.execute('SELECT 1 FROM device_profile_baselines WHERE uid=? AND device=? AND sha=?',(uid,device,base_sha)).fetchone())
+                    stats=merge_backups(self.path(uid,base_sha) if base_sha else None,local_path,self.path(uid,current['sha256']) if current else local_path,merged,scope=scope,legacy_deleted=deleted if base_sha is None else None,profile_base_applied=profile_applied)
                 with merged.open('rb') as source:meta=self.snapshots.put(uid,source,merged.stat().st_size,'cloud.minisbak',device)
                 receipt={'sha256':meta['sha256'],'source_sha':source_sha,'bytes':meta['bytes'],'version':current['version']+1 if current else 1,'conflicts':stats['conflicts'],'deleted':stats['deleted'],'base_sha':base_sha,'mode':mode,'scope':scope,'device':device,'op_id':op_id}
                 encoded=json.dumps(receipt)

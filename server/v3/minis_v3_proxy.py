@@ -33,7 +33,7 @@ def call(request,stream=None):
 
 def handle(handler,path,user,download_guard):
     parsed=urlsplit(path);route=parsed.path
-    snap=re.fullmatch(r'/api/minis/(v3/)?snapshots/([a-f0-9]{64})(/manifest)?',route)
+    snap=re.fullmatch(r'/api/minis/(v3/)?snapshots/([a-f0-9]{64})(/manifest|/delta)?',route)
     routes={'/api/minis/v3/head':('GET','head'),'/api/minis/v3/commit':('POST','v3_commit'),'/api/minis/v3/ack':('POST','v3_ack'),'/api/minis/snapshots':(None,'list'),'/api/minis/delta':('POST','legacy_delta')}
     if not snap and route not in routes:return False
     started=False
@@ -52,7 +52,7 @@ def handle(handler,path,user,download_guard):
         if any(len(v)>512 for v in args.values()):raise ValueError('parameter_too_long')
         for key in ('base','sha'):
             if args.get(key) and not re.fullmatch(r'[a-f0-9]{64}',args[key]):raise ValueError('bad_sha')
-        if snap:method,action='GET','manifest' if snap[3] else 'download'
+        if snap:method,action='GET','manifest' if snap[3]=='/manifest' else 'delta_download' if snap[3]=='/delta' else 'download'
         else:method,action=routes[route]
         if route=='/api/minis/snapshots':
             method=handler.command if handler.command in ('GET','POST') else 'GET'
@@ -70,19 +70,30 @@ def handle(handler,path,user,download_guard):
             request['length']=length
             if length and not download_guard(length):reply(429,{'ok':False,'error':'server_transfer_budget_exhausted'});return True
             handler.connection.settimeout(600)
-        if action!='download':
+        if action=='delta_download':
+            if not request.get('base'):raise ValueError('delta_base_required')
+            if request.get('mode','download')=='meta':action=request['action']='delta_meta'
+            elif request.get('mode','download')!='download':raise ValueError('invalid_delta_mode')
+        if action not in ('download','delta_download'):
             response=call(request,handler.rfile if handler.command=='POST' else None);reply(response['status'],response['data']);return True
-        response=call(dict(request,action='meta'))
+        response=call(dict(request,action='delta_meta' if action=='delta_download' else 'meta'))
         if response['status']!=200:reply(response['status'],response['data']);return True
         size=response['data']['bytes']
-        if type(size) is not int or not 0<size<=MAX_UPLOAD or response['data']['sha256']!=snap[2]:raise RuntimeError('invalid_metadata')
-        if not download_guard(size):reply(429,{'ok':False,'error':'download_budget_exhausted'});return True
+        if type(size) is not int or not 0<size<=MAX_UPLOAD or (action=='download' and response['data']['sha256']!=snap[2]):raise RuntimeError('invalid_metadata')
+        offset=0
+        if action=='delta_download' and handler.headers.get('Range'):
+            value=handler.headers['Range']
+            match=re.fullmatch(r'bytes=([0-9]+)-',value)
+            if not match or int(match[1])>=size:reply(416,{'ok':False,'error':'invalid_range'});return True
+            offset=int(match[1]);request['offset']=offset
+        if not download_guard(size-offset):reply(429,{'ok':False,'error':'download_budget_exhausted'});return True
         with subprocess.Popen(command(request),stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL) as p:
             try:
-                handler.send_response(200);started=True
-                for k,v in {'Content-Type':'application/octet-stream','Content-Length':str(size),'X-Content-SHA256':snap[2],'Cache-Control':'no-store','Connection':'close'}.items():handler.send_header(k,v)
+                handler.send_response(206 if offset else 200);started=True
+                if offset:handler.send_header('Content-Range','bytes %d-%d/%d'%(offset,size-1,size))
+                for k,v in {'Content-Type':'application/octet-stream','Content-Length':str(size-offset),'X-Content-SHA256':response['data']['sha256'],'Cache-Control':'no-store','Connection':'close'}.items():handler.send_header(k,v)
                 handler.end_headers();handler.close_connection=True
-                left=size
+                left=size-offset
                 while left:
                     block=p.stdout.read(min(65536,left))
                     if not block:raise RuntimeError('short_download')

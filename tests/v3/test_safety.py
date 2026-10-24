@@ -27,8 +27,8 @@ def package(rows):
     raw = b''.join((json.dumps({'v':1,'t':'session','d':r})+'\n').encode() for r in rows)
     out=io.BytesIO()
     with zipfile.ZipFile(out,'w') as z:
-        z.writestr('data/sessions.jsonl',raw)
-        z.writestr('manifest.json',json.dumps({'categories':{'chats':True},'integrity':{'data/sessions.jsonl':hashlib.sha256(raw).hexdigest()}}))
+        z.writestr(zipfile.ZipInfo('data/sessions.jsonl',date_time=(2026,1,1,0,0,0)),raw)
+        z.writestr(zipfile.ZipInfo('manifest.json',date_time=(2026,1,1,0,0,0)),json.dumps({'categories':{'chats':True},'integrity':{'data/sessions.jsonl':hashlib.sha256(raw).hexdigest()}}))
     return out.getvalue()
 
 
@@ -209,6 +209,43 @@ class FrontTests(unittest.TestCase):
             self.assertEqual(s,200);self.assertEqual(json.loads(repeat),receipt)
             self.assertEqual(self.request('/api/minis/v3/snapshots/'+receipt['sha256'])[0],200)
             self.assertEqual(quarantine(store.root,True)['quarantined'],0)
+    def test_real_rpc_delta_download_range_and_quota(self):
+        import urllib.parse
+        store=CloudStore(self.root/'delta-live')
+        noise=os.urandom(2*1024*1024)
+        def backup(ids):
+            raw=b''.join((json.dumps({'v':1,'t':'session','d':{'id':x}})+'\n').encode() for x in ids)
+            entries={'data/sessions.jsonl':raw,'data/unchanged.bin':noise}
+            entries['manifest.json']=json.dumps({'categories':{'chats':True},'integrity':{k:hashlib.sha256(v).hexdigest() for k,v in entries.items()}}).encode()
+            out=io.BytesIO()
+            with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
+                for k,v in entries.items():z.writestr(zipfile.ZipInfo(k,date_time=(2026,1,1,0,0,0)),v)
+            return out.getvalue()
+        first=backup(['a']);one=store.commit('1','a',None,'one',io.BytesIO(first),len(first),'a.minisbak',scope='chats')
+        store.ack('1','a',one['sha256'],scope='chats')
+        second=backup(['a','b']);two=store.commit('1','a',one['sha256'],'two',io.BytesIO(second),len(second),'a.minisbak',scope='chats')
+        route='/api/minis/v3/snapshots/'+two['sha256']+'/delta?base='+one['sha256']
+        with patch.object(front,'PY',sys.executable),patch.object(front,'RPC',str(Path(front.__file__).parent/'minis_v3_rpc.py')),patch.object(front,'reserve_transfer',return_value=True) as budget,patch.dict(os.environ,{'MINIS_V3_ROOT':str(store.root)}):
+            status,_,raw=self.request(route+'&mode=meta');self.assertEqual(status,200);meta=json.loads(raw)
+            self.assertLess(meta['bytes'],two['bytes']//10);budget.assert_not_called()
+            status,h,data=self.request(route);self.assertEqual(status,200);self.assertEqual(hashlib.sha256(data).hexdigest(),meta['sha256'])
+            budget.assert_called_with(meta['bytes'])
+            status,h,tail=self.request(route,headers={'Range':'bytes=10-'})
+            self.assertEqual(status,206);self.assertEqual(tail,data[10:]);budget.assert_called_with(meta['bytes']-10)
+            self.assertEqual(h['Content-Range'],'bytes 10-%d/%d'%(len(data)-1,len(data)))
+            with patch.object(front,'reserve_transfer',return_value=False):self.assertEqual(self.request(route)[0],429)
+            self.assertEqual(self.request(route,headers={'Range':'bytes=999999999-'})[0],416)
+            with sqlite3.connect(self.db) as c:c.execute('INSERT INTO tokens VALUES(?,?,?,?)',('other','2',0,int(time.time())+3600))
+            self.assertEqual(self.request(route+'&mode=meta',token='other')[0],404)
+        self.assertEqual(store.head('1'),two)
+    def test_keepalive_response_logger_does_not_accumulate_wrappers(self):
+        c=http.client.HTTPConnection('127.0.0.1',self.server.server_port,timeout=3)
+        with patch.object(front.v3,'call',return_value={'status':200,'data':{'ok':True,'head':None}}),patch.object(front,'log') as log:
+            for _ in range(3):
+                c.request('GET','/api/minis/v3/head',headers={'Authorization':'Bearer good'})
+                r=c.getresponse();self.assertEqual(r.status,200);r.read()
+            self.assertEqual(sum(str(x.args[0]).startswith('RESP ') for x in log.call_args_list),3)
+        c.close()
     def test_stale_replica_expired_or_revoked_token_fail_closed(self):
         self.assertEqual(front.resolve_uid('good'),'1')
         with sqlite3.connect(self.db) as c:c.execute('UPDATE minis_auth_replica SET synced_at=?',(int(time.time())-601,))

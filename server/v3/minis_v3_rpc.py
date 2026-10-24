@@ -22,11 +22,13 @@ class ExactStream:
         self.left-=len(data);return data
 
 def validate(r):
-    if r.get('action') not in ('legacy_put','legacy_delta','v3_commit','v3_ack','head','list','meta','manifest','download'):raise ValueError('unknown_action')
+    if r.get('action') not in ('legacy_put','legacy_delta','v3_commit','v3_ack','head','list','meta','manifest','download','delta_meta','delta_download'):raise ValueError('unknown_action')
     if not re.fullmatch(r'[0-9]{1,32}',str(r.get('uid',''))):raise ValueError('bad_uid')
     for key in ('sha256','base'):
         if r.get(key) and not re.fullmatch(r'[a-f0-9]{64}',r[key]):raise ValueError('bad_sha')
-    if r['action'] in ('meta','manifest','download','v3_ack') and not r.get('sha256'):raise ValueError('sha_required')
+    if r['action'] in ('meta','manifest','download','v3_ack','delta_meta','delta_download') and not r.get('sha256'):raise ValueError('sha_required')
+    if r['action'] in ('delta_meta','delta_download') and not r.get('base'):raise ValueError('delta_base_required')
+    if 'offset' in r and (type(r['offset']) is not int or r['offset']<0):raise ValueError('invalid_offset')
     if r['action'] in ('legacy_put','legacy_delta','v3_commit'):
         if type(r.get('length')) is not int or not 0<r['length']<=MAX_UPLOAD:raise ValueError('size_out_of_range')
 
@@ -49,7 +51,7 @@ def old_path(uid,sha):
 def execute(r,stream,store=None):
     validate(r);store=store or CloudStore(os.environ.get('MINIS_V3_ROOT','/opt/minis-v3/store'))
     uid=str(r['uid']);action=r['action']
-    if action=='head':return {'ok':True,'head':store.head(uid),'protocol':3}
+    if action=='head':return {'ok':True,'uid':uid,'head':store.head(uid),'protocol':3,'capabilities':['exact-download-delta-v1','account-config-restore-v1']}
     if action=='list':return store.legacy_list(uid)
     if action=='v3_ack':return dict(ok=True,**store.ack(uid,r.get('device'),r['sha256'],scope=r.get('scope','all')))
     if action in ('legacy_put','legacy_delta','v3_commit'):
@@ -72,6 +74,16 @@ def execute(r,stream,store=None):
         if action in ('legacy_put','legacy_delta'):
             result=dict(result,head_sha256=result['sha256'],sha256=result['legacy_source_sha'])
         return dict(ok=True,**result)
+    if action in ('delta_meta','delta_download'):
+        from minis_download_delta import prepare
+        path,meta=prepare(store,uid,r['base'],r['sha256'],build=action=='delta_meta')
+        if action=='delta_meta':return dict(ok=True,**meta)
+        offset=r.get('offset',0)
+        if offset>=meta['bytes']:raise ValueError('invalid_offset')
+        with path.open('rb') as source:
+            source.seek(offset)
+            for block in iter(lambda:source.read(65536),b''):sys.stdout.buffer.write(block)
+        return None
     sha=r['sha256']
     try:path=store.path(uid,sha)
     except FileNotFoundError:
@@ -97,7 +109,7 @@ def main():
         if len(sys.argv)!=2 or len(sys.argv[1])>16384:raise ValueError('invalid_request')
         r=json.loads(base64.urlsafe_b64decode(sys.argv[1]));validate(r)
         root=Path(os.environ.get('MINIS_V3_ROOT','/opt/minis-v3/store'));root.mkdir(parents=True,exist_ok=True,mode=0o700)
-        capacity=r['action'] in ('legacy_put','legacy_delta','v3_commit','list')
+        capacity=r['action'] in ('legacy_put','legacy_delta','v3_commit','list','delta_meta')
         with (root/'rpc-capacity.lock').open('a+b') if capacity else nullcontext() as lock:
             if capacity:
                 try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -105,7 +117,7 @@ def main():
             result=execute(r,sys.stdin.buffer)
         if result is not None:print(json.dumps({'status':200,'data':result}))
     except Exception as e:
-        if r.get('action')=='download':raise
+        if r.get('action') in ('download','delta_download'):raise
         status=409 if isinstance(e,CloudConflict) else 404 if isinstance(e,FileNotFoundError) else 400 if isinstance(e,(ValueError,InvalidBackup)) else 503
         if 'capacity' in str(e):status=503
         data={'ok':False,'error':str(e)[:160] if status!=503 else 'storage_temporarily_unavailable'}
