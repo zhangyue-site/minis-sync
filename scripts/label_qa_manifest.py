@@ -14,7 +14,19 @@ def patch(data):
         length = struct.unpack_from('<H', b, p)[0]
         assert length < 0x8000
         names.append(bytes(b[p + 2:p + 2 + length * 2]).decode('utf-16-le'))
-    assert 'test.zhangyue.minis' in names, 'QA package required'
+    cursor, qa_package = off + size, False
+    while cursor < len(b):
+        typ, _, length = struct.unpack_from('<HHI', b, cursor)
+        assert length >= 8
+        if typ == 0x102 and names[u32(cursor + 20)] == 'manifest':
+            base = cursor + 16
+            first, width, total = struct.unpack_from('<HHH', b, base + 8)
+            for i in range(total):
+                a = base + first + width * i
+                if names[u32(a + 4)] == 'package' and b[a + 15] == 3:
+                    qa_package = names[u32(a + 16)] == 'test.zhangyue.minis'
+        cursor += length
+    assert qa_package, 'QA package required'
     label = 'Minis · 验收测试'
     assert label not in names, 'already labeled'
     end = style_start or size
