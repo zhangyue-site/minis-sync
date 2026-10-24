@@ -164,6 +164,11 @@ for test in (False, True):
         manifest = manifest.replace(b'site.zhangyue.minis', b'test.zhangyue.minis')
         manifest = manifest.replace('test.zhangyue.minis.sync.BackgroundSyncJob'.encode('utf-16-le'), 'site.zhangyue.minis.sync.BackgroundSyncJob'.encode('utf-16-le'))
         manifest = manifest.replace('test.zhangyue.minis.sync.SyncExecutionService'.encode('utf-16-le'), 'site.zhangyue.minis.sync.SyncExecutionService'.encode('utf-16-le'))
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('qa_label', ROOT / 'scripts/label_qa_manifest.py')
+        qa_label = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(qa_label)
+        manifest = qa_label.patch(manifest)
     with zipfile.ZipFile(base) as original, zipfile.ZipFile(out / (name + '-unsigned.apk'), 'w', zipfile.ZIP_DEFLATED) as output:
         for entry in original.infolist():
             if entry.filename.startswith('META-INF/') or entry.filename in ('AndroidManifest.xml', 'classes.dex', 'classes2.dex', 'classes3.dex'):
