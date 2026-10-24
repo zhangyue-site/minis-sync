@@ -7,8 +7,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 ROOT = Path(os.environ.get('MINIS_BUILD_ROOT', '/opt/minis-account-20261024'))
-VERSION_NAME = '1.14.19'
-VERSION_CODE = 120
+VERSION_NAME = '1.14.20'
+VERSION_CODE = 121
 BUILD_TIME = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m-%d %H:%M:%S')
 BASE = Path('/opt/msx107/base/dex1_smali')
 BT = Path('/opt/minis-background-20261023/android-sdk/build-tools/35.0.0')

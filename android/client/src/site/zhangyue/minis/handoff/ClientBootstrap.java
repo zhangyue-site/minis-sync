@@ -61,7 +61,13 @@ public final class ClientBootstrap {
         File prefix=new File(root,"opt/minis-clients");prefix.mkdirs();
         File runtime=new File(prefix,"runtime-v1");File receipt=new File(runtime,".payload-sha256");
         boolean present=receipt.isFile() && new String(bytes(new FileInputStream(receipt)),StandardCharsets.UTF_8).trim().equals(expected);
+        if(!present && receipt.isFile()) {
+            // A newer APK must not unpack over a core used by an existing task.
+            Log.i("MinisClients","existing bundled runtime preserved; use verified runtime update");
+            present=true;
+        }
         if(!present){
+            if(runtime.exists())throw new IOException("incomplete_runtime_preserved");
             File packed=new File(prefix,"payload.pending");MessageDigest digest=MessageDigest.getInstance("SHA-256");long length=0;
             try(InputStream in=context.getAssets().open("clients/runtime.tar.gz");FileOutputStream out=new FileOutputStream(packed)){
                 byte[] b=new byte[65536];int n;while((n=in.read(b))!=-1){digest.update(b,0,n);out.write(b,0,n);length+=n;}out.getFD().sync();
@@ -69,10 +75,17 @@ public final class ClientBootstrap {
             StringBuilder actual=new StringBuilder();for(byte b:digest.digest())actual.append(String.format("%02x",b&255));
             if(!expected.equals(actual.toString()) || length!=manifest.getLong("bytes")){packed.delete();throw new IOException("client_payload_digest_mismatch");}
             // Prefix contains only managed, credential-free runtime files. A failed install retries safely.
-            runtime.mkdirs();
-            try(FilterInputStream in=new GZIPInputStream(new FileInputStream(packed))){rootClass.getMethod("c",FilterInputStream.class,File.class).invoke(null,in,runtime);}
-            write(receipt,expected+"\n");packed.delete();
+            File stage=new File(prefix,"builtin-stage-"+java.util.UUID.randomUUID());stage.mkdirs();
+            try {
+                try(FilterInputStream in=new GZIPInputStream(new FileInputStream(packed))){rootClass.getMethod("c",FilterInputStream.class,File.class).invoke(null,in,stage);}
+                write(new File(stage,".payload-sha256"),expected+"\n");
+                if(!stage.renameTo(runtime))throw new IOException("runtime_publish_failed");
+            } finally { packed.delete(); }
+
         }
+        write(new File(prefix,"update.py"),new String(bytes(context.getAssets().open("clients/update.py")),StandardCharsets.UTF_8));
+        write(new File(prefix,"update-key.json"),new String(bytes(context.getAssets().open("clients/update-key.json")),StandardCharsets.UTF_8));
+        write(new File(prefix,"host-version"),Integer.toString(context.getPackageManager().getPackageInfo(context.getPackageName(),0).versionCode));
         write(new File(prefix,"launch"),new String(bytes(context.getAssets().open("clients/launch")),StandardCharsets.UTF_8));
         new File(prefix,"launch").setExecutable(true,false);
         for(String name:new String[]{"opencode","zcode","node","python3","git"}){
