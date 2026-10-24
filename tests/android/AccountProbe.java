@@ -35,6 +35,8 @@ public final class AccountProbe extends Instrumentation {
         long ready=System.currentTimeMillis()+30000;while(providers(c)==null&&System.currentTimeMillis()<ready)Thread.sleep(100);
         check(providers(c)!=null,"native repositories not initialized");
         ClassLoader l=c.getClassLoader();String mode=args.getString("mode","");Object mgr=manager(c);
+        if(args.getString("tokenFile")!=null){File tokenFile=new File(c.getExternalFilesDir(null),"qa-token");if(!args.getString("tokenFile").equals(tokenFile.getAbsolutePath()))throw new SecurityException("QA token path");String token=new String(java.nio.file.Files.readAllBytes(tokenFile.toPath()),"UTF-8").trim();check(tokenFile.delete(),"QA token removal failed");args.putString("token",token);}
+
         if(mode.equals("seed")){
             Object p=providers(c);JSONObject row=new JSONObject().put("providerType","openAI").put("credentialType","apiKey").put("label","Private account provider").put("apiKey",android.util.Base64.encodeToString("synthetic-alpha".getBytes("UTF-8"),android.util.Base64.NO_WRAP)).put("customBaseURL","https://fixture.invalid/v1").put("appendV1Suffix",false).put("isEnabled",true)
                 .put("models",new JSONArray().put(new JSONObject().put("modelId","qa-model").put("displayName","QA Model").put("isCustom",true).put("supportsTools",true).put("maxOutputTokens",8192)));

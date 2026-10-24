@@ -1,9 +1,9 @@
 name: Minis v3 safety
 on:
   push:
-    paths: ['README.md', 'docs/MINIS-V3-SAFETY.md', 'server/v3/**', 'tests/v3/**', 'android/client/**', 'tests/android/**', 'scripts/account_qa_server.py', '.github/workflows/minis-v3-safety.yml']
+    paths: ['README.md', 'docs/MINIS-V3-SAFETY.md', 'server/v3/**', 'tests/v3/**', 'android/client/**', 'tests/android/**', 'assets/clients/**', 'tests/runtime/**', 'scripts/prepare_runtime_release.py', 'scripts/account_qa_server.py', '.github/workflows/minis-v3-safety.yml']
   pull_request:
-    paths: ['README.md', 'docs/MINIS-V3-SAFETY.md', 'server/v3/**', 'tests/v3/**', 'android/client/**', 'tests/android/**', 'scripts/account_qa_server.py', '.github/workflows/minis-v3-safety.yml']
+    paths: ['README.md', 'docs/MINIS-V3-SAFETY.md', 'server/v3/**', 'tests/v3/**', 'android/client/**', 'tests/android/**', 'assets/clients/**', 'tests/runtime/**', 'scripts/prepare_runtime_release.py', 'scripts/account_qa_server.py', '.github/workflows/minis-v3-safety.yml']
 permissions:
   contents: read
 jobs:
@@ -16,3 +16,4 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m unittest discover -s tests/v3 -v
+      - run: python -m unittest discover -s tests/runtime -v

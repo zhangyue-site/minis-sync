@@ -1,7 +1,33 @@
 #!/bin/sh
 # minis-managed-clients-v1
 set -eu
-r=/opt/minis-clients/runtime-v1
+prefix=/opt/minis-clients
+case "${1:-}" in
+  check-update|update|rollback|runtime-status)
+    command="$1"; [ "$command" != runtime-status ] || command=status
+    r="$prefix/runtime-v1"
+    export PYTHONHOME="$r/usr"
+    export LD_LIBRARY_PATH="$r/lib:$r/usr/lib"
+    export SSL_CERT_FILE="$r/etc/ssl/certs/ca-certificates.crt"
+    exec "$r/lib/ld-musl-aarch64.so.1" --library-path "$LD_LIBRARY_PATH" "$r/usr/bin/python3" -I "$prefix/update.py" "$command" ;;
+esac
+selected="${MINIS_RUNTIME_PIN:-}"
+if [ -z "$selected" ] && [ -f "$prefix/state.json" ]; then
+  selected=$(sed -n 's/.*"current":"\([^"]*\)".*/\1/p' "$prefix/state.json")
+fi
+[ -n "$selected" ] || selected=runtime-v1
+case "$selected" in
+  runtime-v1) ;;
+  versions/*) hash="${selected#versions/}"; [ "${#hash}" = 64 ] && ! printf '%s' "$hash" | grep -q '[^0-9a-f]' || { echo 'Invalid runtime selection' >&2; exit 1; } ;;
+  *) echo 'Invalid runtime selection' >&2; exit 1 ;;
+esac
+r="$prefix/$selected"
+[ -d "$r" ] || { echo 'Selected runtime missing; use minis-clients rollback' >&2; exit 1; }
+export MINIS_RUNTIME_PIN="$selected"
+export OPENCODE_AUTOUPDATE=false
+case "${1:-}:${2:-}" in
+  opencode:upgrade|opencode:update|zcode:upgrade|zcode:update) echo 'Use minis-clients check-update / update / rollback for verified updates.' >&2; exit 2 ;;
+esac
 loader="$r/lib/ld-musl-aarch64.so.1"
 export SSL_CERT_FILE="$r/etc/ssl/certs/ca-certificates.crt"
 export NODE_EXTRA_CA_CERTS="$SSL_CERT_FILE"
@@ -10,17 +36,22 @@ export NODE_ICU_DATA="$ICU_DATA"
 export GIT_EXEC_PATH="$r/usr/libexec/git-core"
 export GIT_TEMPLATE_DIR="$r/usr/share/git-core/templates"
 export LD_LIBRARY_PATH="$r/lib:$r/usr/lib"
+export MINIS_TOOL_NAME="${1:-}"
+export MINIS_TOOL_HOME="$r/usr"
+run() {
+  PYTHONHOME="$prefix/runtime-v1/usr" "$prefix/runtime-v1/lib/ld-musl-aarch64.so.1" --library-path "$prefix/runtime-v1/lib:$prefix/runtime-v1/usr/lib" "$prefix/runtime-v1/usr/bin/python3" -I "$prefix/update.py" run "$@"
+}
 case "${1:-}" in
   status) /usr/local/bin/opencode --version; /usr/local/bin/zcode --version; /usr/local/bin/node --version ;;
 
-  opencode) shift; exec "$r/opencode" "$@" ;;
+  opencode) shift; run "$r/opencode" "$@" ;;
   zcode) shift
     export ZCODE_BUILTIN_PROVIDER_CONFIG_FILE="$r/zcode-builtin.json"
     export ZCODE_PERSONAL_PROVIDER_CONFIG_FILE="${ZCODE_PERSONAL_PROVIDER_CONFIG_FILE:-$HOME/.zcode/v2/provider_config.json}"
     mkdir -p "$HOME/.zcode/v2"
-    exec "$loader" --library-path "$LD_LIBRARY_PATH" "$r/usr/bin/node" "$r/zcode.cjs" "$@" ;;
-  node) shift; exec "$loader" --library-path "$LD_LIBRARY_PATH" "$r/usr/bin/node" "$@" ;;
-  python3) shift; export PYTHONHOME="$r/usr"; exec "$loader" --library-path "$LD_LIBRARY_PATH" "$r/usr/bin/python3" "$@" ;;
-  git) shift; exec "$loader" --library-path "$LD_LIBRARY_PATH" "$r/usr/bin/git" "$@" ;;
-  *) echo 'Usage: minis-clients {status|opencode|zcode|node|python3|git} [arguments...]' >&2; exit 2 ;;
+    run "$loader" --library-path "$LD_LIBRARY_PATH" "$r/usr/bin/node" "$r/zcode.cjs" "$@" ;;
+  node) shift; run "$loader" --library-path "$LD_LIBRARY_PATH" "$r/usr/bin/node" "$@" ;;
+  python3) shift; export PYTHONHOME="$r/usr"; run "$loader" --library-path "$LD_LIBRARY_PATH" "$r/usr/bin/python3" "$@" ;;
+  git) shift; run "$loader" --library-path "$LD_LIBRARY_PATH" "$r/usr/bin/git" "$@" ;;
+  *) echo 'Usage: minis-clients {status|runtime-status|check-update|update|rollback|opencode|zcode|node|python3|git} [arguments...]' >&2; exit 2 ;;
 esac

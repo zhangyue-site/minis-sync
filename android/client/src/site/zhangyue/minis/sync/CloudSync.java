@@ -147,7 +147,8 @@ public final class CloudSync {
             // scope=chats also prevents unapplied categories becoming deletions
             // on the server when this device next submits a native export.
             int attachmentConflicts=0;
-            if(!alreadyApplied) {
+            boolean identicalChats=CloudContent.chatState(remote).equals(CloudContent.chatState(now));
+            if(!alreadyApplied&&!identicalChats) {
                 attachmentConflicts=ChatAttachments.apply(context,remote,now);
                 NativeChatApply.apply(context,remote,now);
             }
@@ -193,7 +194,7 @@ public final class CloudSync {
             try {nativeApi.result("同步未完成："+e.getMessage()+"。原内容和安全备份保留。",false);}catch(Exception ignored){}
             boolean again=e instanceof NativeChatApply.LocalChanged||e instanceof java.net.SocketException||e instanceof java.net.SocketTimeoutException||e instanceof java.net.UnknownHostException;
             int delay=10;
-            if(e instanceof SyncTransport.HttpFailure) {SyncTransport.HttpFailure h=(SyncTransport.HttpFailure)e;again=h.status==429||h.status==503||h.status==502||h.status==504;delay=h.retryAfter;}
+            if(e instanceof SyncTransport.HttpFailure) {SyncTransport.HttpFailure h=(SyncTransport.HttpFailure)e;again=h.status==429||h.status==503||h.status==502||h.status==504||(h.status==404&&!context.getSharedPreferences("minis-cloud-"+legacy.getString("owner",""),0).getString("pending-op","").isEmpty());delay=h.retryAfter;}
             if(again) {
                 SharedPreferences state=context.getSharedPreferences("minis-cloud-"+legacy.getString("owner",""),0);
                 int attempt=Math.min(6,state.getInt("retry-attempt",0)+1);
