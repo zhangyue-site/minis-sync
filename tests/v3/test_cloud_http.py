@@ -17,13 +17,19 @@ class CloudHTTPTests(unittest.TestCase):
     def request(self,method,path,body=None,token='alpha',headers=None):
         c=http.client.HTTPConnection('127.0.0.1',self.server.server_port,timeout=3)
         h={'Authorization':'Bearer '+token};h.update(headers or {})
-        c.request(method,path,body=body,headers=h);r=c.getresponse();raw=r.read();result=(r.status,dict(r.getheaders()),raw);c.close();return result
+        c.request(method,path,body=body,headers=h);r=c.getresponse();raw=r.read();result=(r.status,dict(r.getheaders()),raw);c.close()
+        # The body may arrive before the handler finally releases its slot.
+        # Serialize ordinary fixture requests; keep intentional busy responses observable.
+        if r.status!=503:
+            slots=self.server.RequestHandlerClass.request_slots
+            self.assertTrue(slots.acquire(timeout=3));slots.release()
+        return result
     def package(self,value='x'):
         raw=(json.dumps({'v':1,'t':'session','d':{'id':value}})+'\n').encode()
         entries={'data/sessions.jsonl':raw}; entries['manifest.json']=json.dumps({'categories':{'chats':True},'integrity':{'data/sessions.jsonl':hashlib.sha256(raw).hexdigest()}}).encode()
         b=io.BytesIO()
         with zipfile.ZipFile(b,'w') as z:
-            for k,v in entries.items():z.writestr(k,v)
+            for k,v in entries.items():z.writestr(zipfile.ZipInfo(k,date_time=(2026,1,1,0,0,0)),v)
         return b.getvalue()
     def commit(self,raw,op='one',extra=''):
         status,_,body=self.request('POST','/api/minis/v3/commit?device=a&op='+op+'&name=a.minisbak'+extra,raw)

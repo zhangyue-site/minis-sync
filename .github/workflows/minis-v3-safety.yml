@@ -1,9 +1,9 @@
 name: Minis v3 safety
 on:
   push:
-    paths: ['README.md', 'docs/MINIS-V3-SAFETY.md', 'server/v3/**', 'tests/v3/**', '.github/workflows/minis-v3-safety.yml']
+    paths: ['README.md', 'docs/MINIS-V3-SAFETY.md', 'server/v3/**', 'tests/v3/**', 'android/client/**', 'tests/android/**', 'scripts/account_qa_server.py', '.github/workflows/minis-v3-safety.yml']
   pull_request:
-    paths: ['README.md', 'docs/MINIS-V3-SAFETY.md', 'server/v3/**', 'tests/v3/**', '.github/workflows/minis-v3-safety.yml']
+    paths: ['README.md', 'docs/MINIS-V3-SAFETY.md', 'server/v3/**', 'tests/v3/**', 'android/client/**', 'tests/android/**', 'scripts/account_qa_server.py', '.github/workflows/minis-v3-safety.yml']
 permissions:
   contents: read
 jobs:

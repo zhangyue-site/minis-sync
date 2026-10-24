@@ -1,0 +1,9 @@
+{
+  "source_sha256": "cc6d07ab3ceffd8e9111910ed65f1062e3deb7e3d572b431f7c933a405598d2a",
+  "libraries": {
+    "arm64-v8a/libminis_attachment_publish.so": "b90fcde2d9d41677f8eaa39c8203eecaddf1d2c924b4875739c73f1480c78f6e",
+    "armeabi-v7a/libminis_attachment_publish.so": "427a604708ca10b79d1ffccc3b84edcf615b8c5163869f105a8cadef63462e23",
+    "x86_64/libminis_attachment_publish.so": "8f7b1944b9bae7a557254af1f6d3bf805ad3312cf2c5d42a328cbc18f8d38f04",
+    "x86/libminis_attachment_publish.so": "a825e9cdf541a42ee1afabc59488b714ebdc57b6276c33b1138fa3d1c2cc82bb"
+  }
+}

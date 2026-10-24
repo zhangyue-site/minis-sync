@@ -16,7 +16,7 @@ import time
 
 MIN_AGE = 7 * 86400
 TABLE_REFS = {
-    'versions': ('sha',), 'devices': ('sha',),
+    'versions': ('sha',), 'device_profile_baselines': ('sha',), 'devices': ('sha',),
     'device_applied_baselines': ('sha',), 'device_baselines': ('sha',), 'device_scoped_baselines': ('sha',),
     'inventory_heads': ('sha',), 'legacy_devices': ('source_sha',),
     'legacy_projections': ('head_sha', 'sha'),

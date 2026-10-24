@@ -233,7 +233,7 @@ def _legacy_three(b,l,c,deleted=False):
     return c,True
 
 
-def merge_backups(base, local, cloud, destination, *, index_key=('category','path'), scope='all', legacy=False, legacy_deleted=None):
+def merge_backups(base, local, cloud, destination, *, index_key=('category','path'), scope='all', legacy=False, legacy_deleted=None, profile_base_applied=False):
     """Merge immutable ZIPs into a new validated ZIP, with bounded record memory.
 
     JSONL records and reference checks use temporary SQLite; at most one record
@@ -261,10 +261,10 @@ def merge_backups(base, local, cloud, destination, *, index_key=('category','pat
             db.execute('CREATE TABLE conflicts(value TEXT PRIMARY KEY) WITHOUT ROWID')
             db.execute('CREATE TABLE checked(path TEXT,k TEXT,PRIMARY KEY(path,k)) WITHOUT ROWID')
             db.execute('CREATE TABLE isolated(path TEXT,k TEXT,PRIMARY KEY(path,k)) WITHOUT ROWID')
-            return _merge(base,local,cloud,destination,index_key,scope,db,Path(work),legacy,legacy_deleted)
+            return _merge(base,local,cloud,destination,index_key,scope,db,Path(work),legacy,legacy_deleted,profile_base_applied)
 
 
-def _merge(base,local,cloud,destination,index_key,scope,db,work,legacy,legacy_deleted):
+def _merge(base,local,cloud,destination,index_key,scope,db,work,legacy,legacy_deleted,profile_base_applied=False):
     lp,lm,le=_read(local,db,1,index_key);cp,cm,ce=_read(cloud,db,2,index_key)
     if base is None:bp,bm,be=cp,cm,{}
     else:bp,bm,be=_read(base,db,0,index_key)
@@ -317,6 +317,10 @@ def _merge(base,local,cloud,destination,index_key,scope,db,work,legacy,legacy_de
                 elif legacy:
                     tombstoned=bool(legacy_deleted(path,key)) if legacy_deleted is not None and cv is _MISSING else False
                     value,bad=_legacy_three(bv,lv,cv,tombstoned)
+                elif profile_base_applied and path=='files.index.jsonl' and next((r.get('category') for r in (cv,lv,bv) if r is not _MISSING),None)=='skills':
+                    if lv is _MISSING:value,bad=(cv if cv is not _MISSING else bv),False
+                    elif cv is _MISSING:value,bad=lv,False
+                    else:value,bad=_three(bv,lv,cv)
                 else:value,bad=_three(effective_base,lv,cv)
                 if bad:
                     recovery(path,bv,lv,cv,key=_json(key))
@@ -329,12 +333,16 @@ def _merge(base,local,cloud,destination,index_key,scope,db,work,legacy,legacy_de
             if any(v!=values[0] for v in values):raise UnsupportedMerge('blob_collision')
             result[path]=values[0]
         else:
+            original_base=b
             if conservative and not legacy:
                 if l is _MISSING and c is _MISSING:c=b
                 b=_MISSING
             if path.startswith('data/') and path.endswith('.json') or path=='secrets.json':
                 bv,lv,cv=[_json(_raw(v)) if v is not _MISSING else v for v in (b,l,c)]
-                value,bad=(_legacy_three if legacy else _three)(bv,lv,cv)
+                if conservative and not legacy and path in ('data/provider_config.json','secrets.json'):
+                    from minis_account_merge import merge as account_merge
+                    value,bad=account_merge(lv,cv,_MISSING,_json(_raw(original_base)) if profile_base_applied and original_base is not _MISSING else _MISSING)
+                else:value,bad=(_legacy_three if legacy else _three)(bv,lv,cv)
                 if bad:recovery(path,bv,lv,cv)
                 if value is not _MISSING:result[path]=_disk_file(work,json.JSONEncoder(ensure_ascii=False).iterencode(value),MAX_JSON_FILE)
                 del bv,lv,cv,value

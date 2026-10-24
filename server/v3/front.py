@@ -157,6 +157,8 @@ class H(BaseHTTPRequestHandler):
         except Exception as e:
             log('HANDLE-EXC %s: %s' % (type(e).__name__, str(e)[:100]))
             traceback.print_exc()
+        finally:
+            self.send_response = _orig_sr
         if not ok:
             log('404 %s %s' % (self.command, path.path[:50]))
             self._json(404, {'ok': False, 'error': 'not_found'})
